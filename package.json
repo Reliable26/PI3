@@ -1,0 +1,1 @@
+{"scripts":{"update:intelligence":"node scripts/update-intelligence.js"},"engines":{"node":">=20"},"dependencies":{}}

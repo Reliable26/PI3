@@ -1,0 +1,22 @@
+{
+  "territoryKeywords": ["Charlotte", "Mecklenburg", "Cabarrus", "Gaston", "Union County NC", "Iredell", "York County SC", "Lancaster County SC", "Pineville", "Matthews", "Huntersville", "Concord", "Gastonia", "Monroe", "Mooresville", "Rock Hill", "Fort Mill"],
+  "excludeKeywords": ["church", "ministry", "single-family", "single family", "townhome", "townhouse", "condo", "condominium", "federal", "state of north carolina"],
+  "gdeltQueries": [
+    {
+      "name": "Charlotte commercial fire signals",
+      "query": "(Charlotte OR Mecklenburg OR Concord OR Gastonia OR Rock Hill) (apartment fire OR commercial fire OR structure fire OR hotel fire OR warehouse fire OR smoke damage)"
+    },
+    {
+      "name": "Charlotte commercial property permits and capital projects",
+      "query": "(Charlotte OR Mecklenburg OR Cabarrus OR Gaston OR Union OR Iredell OR York OR Lancaster) (building permit OR roof permit OR renovation OR capital improvement OR exterior renovation OR waterproofing)"
+    },
+    {
+      "name": "Charlotte multifamily acquisition management activity",
+      "query": "(Charlotte OR Mecklenburg OR Concord OR Mooresville OR Rock Hill OR Fort Mill) (apartment acquisition OR multifamily acquisition OR management change OR property management OR refinancing)"
+    },
+    {
+      "name": "Watch company Southeast activity",
+      "query": "(Bell Partners OR Knightvest OR MAA OR Cortland OR Asset Living OR Willow Bridge OR Lincoln Property OR RPM Living OR Fogelman OR Morgan Properties) (Charlotte OR North Carolina OR South Carolina OR acquisition OR management)"
+    }
+  ]
+}
