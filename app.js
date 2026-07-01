@@ -32,7 +32,7 @@ function opportunityCard(o) {
     <div class="card-top">
       <div>
         <h3>${o.propertyName || 'Property Requires Verification'}</h3>
-        <p>${o.category || 'Opportunity'} • ${o.propertyStatus || 'Needs Verification'}</p>
+        <p>${o.opportunityClass || 'Opportunity'} • ${o.category || 'Opportunity'} • ${o.propertyStatus || 'Needs Verification'}</p>
       </div>
       <div class="rating"><span>${ratings.overall ?? 0}</span><small>Rating</small></div>
     </div>
@@ -74,6 +74,8 @@ async function loadData() {
     lastUpdated.textContent = `Generated ${fmtDateTime(data.generatedAt)}`;
     metrics.innerHTML = [
       metric('Opportunities', s.opportunities ?? 0),
+      metric('Emergency', s.emergencyOpportunities ?? 0),
+      metric('Capital', s.capitalOpportunities ?? 0),
       metric('Candidates', s.candidates ?? 0),
       metric('Old Items Excluded', s.oldItemsExcluded ?? 0),
       metric('Out of Territory Excluded', s.outOfTerritoryExcluded ?? 0),
@@ -82,7 +84,7 @@ async function loadData() {
     ].join('');
     sourceHealth.innerHTML = (data.health || []).map(sourceRow).join('') || '<p>No source health available.</p>';
     feedStatus.textContent = `${(data.opportunities || []).length} active`;
-    opportunities.innerHTML = (data.opportunities || []).map(opportunityCard).join('') || '<p class="empty">No recent commercial fire opportunities found inside the current recency window.</p>';
+    opportunities.innerHTML = (data.opportunities || []).map(opportunityCard).join('') || '<p class="empty">No qualified recent emergency or capital improvement opportunities found inside the current filters.</p>';
   } catch (err) {
     metrics.innerHTML = metric('Status', 'No Data');
     sourceHealth.innerHTML = `<p class="empty">${err.message}</p>`;

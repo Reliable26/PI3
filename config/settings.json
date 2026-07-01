@@ -1,15 +1,35 @@
 {
-  "version": "0.2.2c",
+  "version": "0.2.3-permit-intelligence-preview",
   "territoryName": "Charlotte Metro",
   "emergencyMaxAgeHours": 72,
   "standardMaxArticleAgeDays": 14,
-  "googleNewsQueries": [
+  "googleNewsFireQueries": [
     "\"Charlotte\" \"apartment fire\" when:3d",
     "\"Charlotte\" \"commercial fire\" when:3d",
     "\"Mecklenburg County\" \"apartment fire\" when:3d",
     "\"Charlotte\" \"hotel fire\" when:3d",
     "\"Charlotte\" \"warehouse fire\" when:3d",
     "\"Charlotte\" \"office fire\" when:3d"
+  ],
+  "googleNewsPermitQueries": [
+    "\"Charlotte\" \"commercial permit\" roof when:14d",
+    "\"Mecklenburg County\" \"commercial permit\" when:14d",
+    "\"Charlotte\" \"building permit\" \"commercial alteration\" when:14d",
+    "\"Charlotte\" \"roof permit\" apartment when:14d",
+    "\"Charlotte\" \"exterior renovation\" permit when:14d",
+    "\"Charlotte\" \"building envelope\" permit when:14d",
+    "\"Charlotte\" \"waterproofing\" permit when:14d",
+    "\"Charlotte\" \"tenant improvement\" permit when:14d"
+  ],
+  "permitValidationSources": [
+    {
+      "name": "City of Charlotte Search Projects and Permits",
+      "url": "https://www.charlottenc.gov/Growth-and-Development/Getting-Started-on-Your-Project/Search-Projects-and-Permits"
+    },
+    {
+      "name": "Mecklenburg County Accela / Code Enforcement Customer Tools",
+      "url": "https://code.mecknc.gov/customer-tools/aca"
+    }
   ],
   "targetCounties": [
     "Mecklenburg",
@@ -34,7 +54,16 @@
     "dumpster fire",
     "trash fire",
     "shed fire",
-    "garage fire"
+    "garage fire",
+    "church",
+    "religious",
+    "synagogue",
+    "mosque",
+    "single family residence",
+    "townhome",
+    "duplex",
+    "pool permit",
+    "fence permit"
   ],
   "targetGeoTerms": [
     "Charlotte NC",

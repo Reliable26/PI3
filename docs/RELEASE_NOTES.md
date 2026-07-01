@@ -1,14 +1,17 @@
-# PI v0.2.2c — Format Rollback + Strict Territory Qualification
+# PI v0.2.3 - Permit Intelligence Preview
 
-## Fixed
-- Restores the prior dashboard layout/format from v0.2.2b.
-- Removes the looser source-based territory logic that allowed out-of-market articles.
-- Rejects local-outlet world/national/international syndicated articles unless the article text itself contains target territory terms.
-- Adds section rejection for `/world/`, `/national/`, `/international/`, and related category markers.
+## Added
+- Permit Intelligence preview module.
+- Commercial permit / capital improvement Google News signal queries.
+- Permit source connectivity validation for Charlotte and Mecklenburg public permit pages.
+- Permit classification for roofing, building envelope, waterproofing, exterior renovation, commercial alteration, tenant improvement, fire repair, water damage, and structural repair.
+- Emergency vs Capital Improvement dashboard counts.
 
-## Still Included
-- Recent emergency filter.
-- Article published dates.
-- Source links.
-- Evidence counts.
-- Property parser fix.
+## Important Limitation
+This release validates permit-intelligence flow and source connectivity. It does not yet scrape Accela permit records directly. Production permit extraction will require a source-specific parser after access validation.
+
+## Fixed / Preserved
+- Keeps strict territory filtering.
+- Keeps previous dashboard format.
+- Keeps publication dates and source links.
+- Does not commit generated data back to Git.

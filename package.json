@@ -1,6 +1,6 @@
 {
   "name": "pi-property-intelligence",
-  "version": "0.2.2c",
+  "version": "0.2.3-permit-intelligence-preview",
   "private": true,
   "scripts": {
     "test": "node tests/run-tests.js",

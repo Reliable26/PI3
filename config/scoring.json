@@ -8,14 +8,26 @@
     "Healthcare Fire": 40,
     "Education Fire": 35,
     "Commercial Structure Fire": 35,
+    "Commercial Roof Permit": 36,
+    "Building Envelope Permit": 34,
+    "Waterproofing Permit": 34,
+    "Exterior Renovation Permit": 30,
+    "Commercial Alteration Permit": 28,
+    "Tenant Improvement Permit": 24,
+    "Fire Repair Permit": 40,
+    "Water Damage Permit": 40,
+    "Structural Repair Permit": 35,
+    "Capital Improvement Permit": 26,
     "Needs Verification": 20
   },
   "bonuses": {
     "freshWithin24Hours": 15,
     "freshWithin72Hours": 10,
+    "freshWithin14Days": 8,
     "multipleSources": 10,
     "resolvedPropertyName": 8,
     "sourceLink": 5,
-    "articleDate": 5
+    "articleDate": 5,
+    "capitalSignal": 8
   }
 }
