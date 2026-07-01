@@ -1,16 +1,14 @@
-# Reliable Intel - v0.9 Alpha
+# Reliable Intel v0.9.1 Alpha
 
-Production-foundation build focused on property-first intelligence.
-
-## What this build does
-
-- Keeps the current dashboard format.
-- Uses the certified Mecklenburg BuildingPermits FeatureServer.
-- Groups permits by address/parcel.
-- Creates Property Intelligence Records from permit/fire signals.
-- Creates standardized signals, evidence, and organization records.
-- Generates JSON data during GitHub Actions deployment only.
+Property-first commercial intelligence platform for Reliable Restorations.
 
 ## Install
+1. Copy all files into the PI3 repo root.
+2. Commit: `Reliable Intel v0.9.1 alpha property resolver GIS enrichment`
+3. Push.
+4. Run GitHub Actions -> Update Intelligence -> Run workflow.
 
-Copy the contents of this package into the PI3 repository root, commit, push, and run **Actions -> Update Intelligence -> Run workflow**.
+## Validate
+- Source Health should include Mecklenburg Building Permits and Mecklenburg Parcels GIS.
+- Dashboard metrics should show GIS Parcel Matches.
+- Permit opportunities should include a Property Resolution section with parcel/GIS details when matched.

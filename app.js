@@ -45,6 +45,28 @@ function permitClusterBlock(o) {
     ${cluster.owner ? `<p><strong>Owner from permit record:</strong> ${cluster.owner}</p>` : ''}
     <ul class="permits">${permits}</ul>`;
 }
+
+function propertyResolutionBlock(o) {
+  const r = o.propertyResolution;
+  if (!r) return '';
+  const attrs = r.gisAttributes || {};
+  const rows = [
+    ['Status', r.status],
+    ['Method', r.method],
+    ['Parcel', r.parcelId],
+    ['Confidence', r.confidence ? `${Math.round(r.confidence * 100)}%` : 'Unknown'],
+    ['GIS PID', attrs.PID || ''],
+    ['NC PIN', attrs.NC_PIN || ''],
+    ['Map Book/Page', [attrs.MAP_BOOK, attrs.MAP_PAGE, attrs.MAP_BLOCK, attrs.LOT_NUM].filter(Boolean).join('-')]
+  ].filter(x => x[1]);
+  return `<h4>Property Resolution</h4>
+    <div class="resolution-grid">${rows.map(([k,v]) => `<div><span>${k}</span><strong>${v}</strong></div>`).join('')}</div>
+    <div class="permit-links">
+      ${r.gisSourceUrl ? `<a href="${r.gisSourceUrl}" target="_blank" rel="noopener">GIS source</a>` : ''}
+      ${r.gisQueryUrl ? `<a href="${r.gisQueryUrl}" target="_blank" rel="noopener">GIS query</a>` : ''}
+    </div>`;
+}
+
 function opportunityCard(o) {
   const ratings = o.ratings || {};
   const sources = (o.sources || []).map(s => `<li><a href="${s.url}" target="_blank" rel="noopener">${s.name || 'Source'}</a><span>${fmtDateTime(s.publishedAt)}</span><em>${s.title || ''}</em></li>`).join('');
@@ -76,6 +98,7 @@ function opportunityCard(o) {
       <h4>Why Now</h4><p>${o.whyNow || ''}</p>
       <h4>Why This Matters</h4><p>${o.whyThisMatters || ''}</p>
       <h4>Recommended Services</h4><ul>${services}</ul>
+      ${propertyResolutionBlock(o)}
       ${permitClusterBlock(o)}
       <h4>Score Breakdown</h4><ul class="breakdown">${breakdown}</ul>
       <h4>Supporting Public Sources</h4><ul class="sources">${sources}</ul>
@@ -101,6 +124,7 @@ async function loadData() {
       metric('Capital Improvement', s.capitalImprovementOpportunities ?? 0),
       metric('Permit Records Retrieved', s.permitRecordsRetrieved ?? 0),
       metric('Permit Address Clusters', s.permitClusters ?? 0),
+      metric('GIS Parcel Matches', `${s.gisMatches ?? 0}/${s.gisLookups ?? 0}`),
       metric('Out of Territory Excluded', s.outOfTerritoryExcluded ?? 0),
       metric('Residential / Noise Excluded', (s.nonCommercialExcluded ?? 0) + (s.permitExcluded ?? 0))
     ].join('');

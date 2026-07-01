@@ -1,5 +1,5 @@
 {
-  "version": "0.2.4b-perm001-certified-meck-buildingpermits",
+  "version": "0.9.1-property-resolver-gis-alpha",
   "territoryName": "Charlotte Metro",
   "emergencyMaxAgeHours": 72,
   "permitMaxAgeDays": 730,
@@ -11,6 +11,16 @@
     "\"Charlotte\" \"hotel fire\" when:3d",
     "\"Charlotte\" \"warehouse fire\" when:3d",
     "\"Charlotte\" \"office fire\" when:3d"
+  ],
+  "gisSources": [
+    {
+      "id": "meck-parcels-mapserver",
+      "name": "Mecklenburg Parcels GIS",
+      "type": "arcgis-map-layer",
+      "url": "https://gis.charlottenc.gov/arcgis/rest/services/CountyData/Parcels/MapServer/0/query",
+      "sourceUrl": "https://gis.charlottenc.gov/arcgis/rest/services/CountyData/Parcels/MapServer/0",
+      "enabled": true
+    }
   ],
   "permitSources": [
     {

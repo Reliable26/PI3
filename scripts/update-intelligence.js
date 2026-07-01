@@ -525,6 +525,7 @@ function buildPermitPropertyRecord(opportunity) {
     propertyType,
     owner: ownerName ? { organizationId: organizationId(ownerName, 'Owner'), name: normalizeOrgName(ownerName), confidence: 0.88, source: 'Permit record' } : null,
     management: null,
+    gis: opportunity.propertyResolution || null,
     currentHeatScore: opportunity.ratings?.overall || 0,
     latestSignal: opportunity.category,
     latestSignalDate: opportunity.eventDate,
@@ -661,6 +662,82 @@ function buildPermitClusterOpportunity(cluster) {
   };
 }
 
+
+
+function buildGisParcelQueryUrl(source, parcelId) {
+  const clean = String(parcelId || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+  const where = clean
+    ? `(PID='${clean.replace(/'/g, "''")}' OR NC_PIN='${clean.replace(/'/g, "''")}')`
+    : '1=0';
+  const params = new URLSearchParams({
+    where,
+    outFields: 'OBJECTID,NC_PIN,PID,MAP_BOOK,MAP_PAGE,MAP_BLOCK,LOT_NUM,PARCEL_TYPE,CONDO_TOWN_FLAG,Legal_From',
+    returnGeometry: 'false',
+    resultRecordCount: '1',
+    f: 'json'
+  });
+  return `${source.url}?${params.toString()}`;
+}
+
+async function fetchGisParcel(source, parcelId) {
+  const url = buildGisParcelQueryUrl(source, parcelId);
+  const started = Date.now();
+  const res = await fetch(url, { headers: { 'user-agent': 'Mozilla/5.0 ReliableIntel/0.9.1' } });
+  const text = await res.text();
+  let json = null;
+  try { json = JSON.parse(text); } catch (_) {}
+  const feature = json && Array.isArray(json.features) && json.features.length ? json.features[0] : null;
+  return { source, url, ok: res.ok, status: res.status, durationMs: Date.now() - started, feature, rawText: text.slice(0, 300) };
+}
+
+async function enrichPermitOpportunitiesWithGis(opportunities, health) {
+  const source = (settings.gisSources || []).find(s => s.enabled);
+  if (!source) return { opportunities, gisLookups: 0, gisMatches: 0 };
+  const parcelIds = [...new Set(opportunities
+    .filter(o => o.permitCluster && o.permitCluster.parcelId)
+    .map(o => String(o.permitCluster.parcelId).replace(/[^A-Za-z0-9]/g, '').toUpperCase()))]
+    .slice(0, 75);
+  const cache = new Map();
+  let gisLookups = 0, gisMatches = 0;
+  const startedAll = Date.now();
+  for (const parcel of parcelIds) {
+    try {
+      const result = await fetchGisParcel(source, parcel);
+      gisLookups++;
+      if (result.feature && result.feature.attributes) {
+        gisMatches++;
+        cache.set(parcel, { attributes: result.feature.attributes, sourceUrl: source.sourceUrl, queryUrl: result.url, matched: true });
+      } else {
+        cache.set(parcel, { attributes: {}, sourceUrl: source.sourceUrl, queryUrl: result.url, matched: false });
+      }
+    } catch (err) {
+      cache.set(parcel, { attributes: {}, sourceUrl: source.sourceUrl, matched: false, error: err.message });
+    }
+  }
+  health.push({ source: source.name, module: 'GIS / Property Resolution', query: 'Parcel lookup for permit clusters', status: 'pass', durationMs: Date.now() - startedAll, itemsRetrieved: gisLookups, opportunitiesCreated: gisMatches, url: source.sourceUrl });
+  const enriched = opportunities.map(o => {
+    if (!o.permitCluster || !o.permitCluster.parcelId) return o;
+    const parcel = String(o.permitCluster.parcelId).replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+    const gis = cache.get(parcel);
+    if (!gis) return o;
+    return {
+      ...o,
+      propertyResolution: {
+        status: gis.matched ? 'GIS Parcel Matched' : 'Parcel ID Present - GIS Match Pending',
+        method: 'parcel',
+        parcelId: parcel,
+        confidence: gis.matched ? 0.92 : 0.74,
+        gisSource: source.name,
+        gisSourceUrl: gis.sourceUrl,
+        gisQueryUrl: gis.queryUrl,
+        gisAttributes: gis.attributes || {}
+      },
+      propertyStatus: gis.matched ? 'Property Intelligence Record - GIS Parcel Matched' : o.propertyStatus
+    };
+  });
+  return { opportunities: enriched, gisLookups, gisMatches };
+}
+
 async function main() {
   const raw = [];
   const health = [];
@@ -734,7 +811,9 @@ async function main() {
   }
   const fireOpportunities = [...groups.values()].map(buildOpportunity);
   const permitClusters = clusterPermitRecords(permitCandidates);
-  const permitOpportunities = permitClusters.map(buildPermitClusterOpportunity);
+  let permitOpportunities = permitClusters.map(buildPermitClusterOpportunity);
+  const gisEnrichment = await enrichPermitOpportunitiesWithGis(permitOpportunities, health);
+  permitOpportunities = gisEnrichment.opportunities;
   const opportunities = [...fireOpportunities, ...permitOpportunities].sort((a,b) => b.ratings.overall - a.ratings.overall);
   const properties = dedupeProperties(opportunities.map(o => o.opportunityClass === 'Capital Improvement' ? buildPermitPropertyRecord(o) : buildFirePropertyRecord(o)));
   const organizations = collectOrganizationsFromOpportunities(opportunities);
@@ -755,6 +834,8 @@ async function main() {
       emergencyOpportunities: byClass.Emergency || 0,
       capitalImprovementOpportunities: byClass['Capital Improvement'] || 0,
       properties: properties.length,
+      gisLookups: typeof gisEnrichment !== 'undefined' ? gisEnrichment.gisLookups : 0,
+      gisMatches: typeof gisEnrichment !== 'undefined' ? gisEnrichment.gisMatches : 0,
       organizations: organizations.length,
       signals: signals.length,
       evidence: evidence.length,
@@ -789,4 +870,4 @@ async function main() {
 
 if (require.main === module) main().catch(err => { console.error(err); process.exit(1); });
 
-module.exports = { parseRss, classifyFire, extractPropertyName, isInsideTargetTerritory, buildOpportunity, classifyPermit, normalizePermitFeature, buildPermitOpportunity, buildPermitClusterOpportunity, clusterPermitRecords, normalizeAddressKey, parcelPropertyId, normalizeOrgName, organizationId, buildPermitPropertyRecord, dedupeProperties };
+module.exports = { parseRss, classifyFire, extractPropertyName, isInsideTargetTerritory, buildOpportunity, classifyPermit, normalizePermitFeature, buildPermitOpportunity, buildPermitClusterOpportunity, clusterPermitRecords, normalizeAddressKey, parcelPropertyId, normalizeOrgName, organizationId, buildPermitPropertyRecord, dedupeProperties, buildGisParcelQueryUrl };

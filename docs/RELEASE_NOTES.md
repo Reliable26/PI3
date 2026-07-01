@@ -1,18 +1,18 @@
-# v0.9 Alpha - Engine Foundation
+# Reliable Intel v0.9.1 Alpha - Property Resolver / GIS Enrichment
 
 ## Added
-- Property Intelligence Record generation.
-- Parcel-first property IDs where parcel data exists.
-- Standard Signal objects.
-- Standard Evidence objects.
-- Organization normalization for owners, contractors, and applicants when exposed.
-- Additional output files: `properties.json`, `organizations.json`, `signals.json`, and `evidence.json`.
+- Mecklenburg parcel GIS lookup for permit clusters.
+- Property Resolution panel on opportunity cards.
+- GIS source and GIS query links for parcel verification.
+- GIS lookup metrics in dashboard summary.
+- Property Intelligence Records now preserve GIS resolution details when matched.
 
-## Improved
-- Permit clusters now feed property records instead of only dashboard cards.
-- Permit clusters use parcel IDs as stronger identifiers when available.
-- Dashboard format remains unchanged from the preferred layout.
+## Kept
+- Existing dashboard layout.
+- Existing permit clustering.
+- Existing fire intelligence and strict territory filtering.
 
 ## Notes
-- Contractor/applicant enrichment is limited to fields exposed by the public permit GIS layer. A secondary permit-detail lookup is still required for richer contractor data.
-- GIS parcel enrichment and Register of Deeds ownership history are next certified connector targets.
+- GIS enrichment uses parcel IDs from the official Mecklenburg Building Permits feed.
+- If a permit record does not include a usable parcel ID, it remains address-clustered.
+- Ownership and management enrichment are still separate upcoming connectors.
