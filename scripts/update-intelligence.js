@@ -324,6 +324,67 @@ function classifyPermit(attrs) {
   return { keep:true, category:'Capital Improvement', reason:'Matched target commercial permit' };
 }
 
+
+function normalizeAddressKey(address='') {
+  return String(address)
+    .toUpperCase()
+    .replace(/\b(STREET)\b/g, 'ST')
+    .replace(/\b(AVENUE)\b/g, 'AVE')
+    .replace(/\b(BOULEVARD)\b/g, 'BLVD')
+    .replace(/\b(DRIVE)\b/g, 'DR')
+    .replace(/\b(ROAD)\b/g, 'RD')
+    .replace(/\b(LANE)\b/g, 'LN')
+    .replace(/\b(COURT)\b/g, 'CT')
+    .replace(/[^A-Z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function permitDetailUrl(record) {
+  if (!record.caseNumber) return record.link;
+  const where = `permitnum='${String(record.caseNumber).replace(/'/g, "''")}'`;
+  const params = new URLSearchParams({ where, outFields: '*', returnGeometry: 'false', f: 'html' });
+  return `${settings.permitSources?.[0]?.url || record.link}?${params.toString()}`;
+}
+
+function contractorSearchUrl(record) {
+  const name = record.contractor || record.applicant || record.owner || '';
+  if (!name) return '';
+  return `https://www.google.com/search?q=${encodeURIComponent(`${name} Charlotte NC contractor`)}`;
+}
+
+function clusterPermitRecords(records) {
+  const groups = new Map();
+  for (const record of records) {
+    const key = record.parcelId ? `parcel:${record.parcelId}` : `addr:${normalizeAddressKey(record.address || record.propertyName || record.caseNumber)}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(record);
+  }
+  return [...groups.entries()].map(([key, items]) => ({ key, items: items.sort((a,b) => new Date(b.publishedAt || 0) - new Date(a.publishedAt || 0)) }));
+}
+
+function dominantPermitCategory(items) {
+  const priority = ['Fire Restoration','Water Damage','Structural Repair','Building Envelope','Waterproofing','Roofing','Exterior Renovation','Commercial Alteration','Capital Improvement'];
+  for (const p of priority) if (items.some(x => x.category === p)) return p;
+  return items[0]?.category || 'Capital Improvement';
+}
+
+function clusterScores(cluster) {
+  const items = cluster.items;
+  const category = dominantPermitCategory(items);
+  const newest = items[0];
+  const ageDays = newest?.publishedAt ? hoursBetween(new Date(newest.publishedAt), new Date()) / 24 : 999;
+  const base = permitScores({ ...newest, category, cost: items.reduce((sum, x) => sum + (x.cost || 0), 0) }, ageDays);
+  const uniqueCats = new Set(items.map(x => x.category)).size;
+  const totalCost = items.reduce((sum, x) => sum + (x.cost || 0), 0);
+  const opportunity = Math.min(100, base.opportunity + Math.min(15, (items.length - 1) * 4) + Math.min(10, (uniqueCats - 1) * 3));
+  const confidence = Math.min(99, base.confidence + (items.length > 1 ? 5 : 0));
+  const impact = Math.min(100, base.impact + Math.min(20, (items.length - 1) * 5) + (totalCost > 250000 ? 6 : 0));
+  const signalStrength = Math.min(100, 60 + Math.min(35, items.length * 7));
+  const overall = Math.round((opportunity * 0.4) + (confidence * 0.22) + (base.freshness * 0.13) + (impact * 0.18) + (base.coverage * 0.07));
+  return { ...base, overall, opportunity, confidence, impact, signalStrength };
+}
+
 function parseMoney(value) {
   if (value === null || value === undefined || value === '') return 0;
   const n = Number(String(value).replace(/[^0-9.\-]/g, ''));
@@ -357,6 +418,9 @@ function normalizePermitFeature(feature, source) {
     proposedUse: firstValue(attrs, ['ProposedUs','permittype','worktype','permit_type','type_of_work']),
     cost,
     neighborhood: firstValue(attrs, ['taxjuris','Neighborho','tax_jurisdiction']),
+    owner: firstValue(attrs, ['ownname','owner','ownername','owner_name']),
+    applicant: firstValue(attrs, ['applicant','applicantname','applname','appl_name','contactname','contact_name']),
+    contractor: firstValue(attrs, ['contractor','contractorname','contractor_name','contrname','licensedprofessional','license_professional','profname']),
     propertyName: firstValue(attrs, ['projname','project_name']) || address || 'Property Requires Verification',
     opportunityClass: 'Capital Improvement',
     raw: attrs
@@ -376,36 +440,75 @@ function permitScores(record, ageDays) {
 }
 
 function buildPermitOpportunity(record) {
-  const ageDays = record.publishedAt ? hoursBetween(new Date(record.publishedAt), new Date()) / 24 : 999;
-  const ratings = permitScores(record, ageDays);
-  const propertyName = record.address || 'Property Requires Verification';
+  return buildPermitClusterOpportunity({ key: record.address || record.caseNumber, items: [record] });
+}
+
+function buildPermitClusterOpportunity(cluster) {
+  const items = cluster.items;
+  const newest = items[0];
+  const oldest = items[items.length - 1];
+  const category = dominantPermitCategory(items);
+  const ratings = clusterScores(cluster);
+  const address = newest.address || newest.propertyName || 'Property Requires Verification';
+  const totalCost = items.reduce((sum, x) => sum + (x.cost || 0), 0);
+  const categories = [...new Set(items.map(x => x.category))];
+  const permitList = items.map(x => ({
+    caseNumber: x.caseNumber,
+    category: x.category,
+    issuedDate: x.publishedAt,
+    description: x.description,
+    cost: x.cost,
+    owner: x.owner || '',
+    applicant: x.applicant || '',
+    contractor: x.contractor || '',
+    permitDetailUrl: permitDetailUrl(x),
+    contractorSearchUrl: contractorSearchUrl(x)
+  }));
+  const detailLinks = items.map(x => ({
+    name: x.source,
+    title: `${x.caseNumber || 'Permit'} - ${x.category}${x.contractor ? ` - ${x.contractor}` : ''}`,
+    url: permitDetailUrl(x),
+    publishedAt: x.publishedAt
+  }));
   return {
-    id: `PI-${new Date().getUTCFullYear()}-${hash(`permit|${record.caseNumber}|${record.address}|${record.category}`).toUpperCase()}`,
-    propertyId: `PIR-${hash(propertyName).toUpperCase()}`,
-    propertyName,
-    propertyStatus: record.address ? 'Permit Address Extracted - Needs Property Verification' : 'Needs Verification',
+    id: `PI-${new Date().getUTCFullYear()}-${hash(`permitcluster|${cluster.key}|${category}`).toUpperCase()}`,
+    propertyId: `PIR-${hash(address).toUpperCase()}`,
+    propertyName: address,
+    propertyStatus: newest.address ? 'Permit Address Cluster - Needs Property Verification' : 'Needs Verification',
     county: 'Mecklenburg',
     territory: settings.territoryName,
-    category: record.category,
+    category: items.length > 1 ? `${category} Cluster` : category,
     opportunityClass: 'Capital Improvement',
-    eventDate: record.eventDate,
-    publishedDate: record.publishedAt,
+    eventDate: newest.eventDate,
+    publishedDate: newest.publishedAt,
     piDetectedDate: nowIso(),
     lastVerifiedDate: nowIso(),
     ratings,
-    whatChanged: `${record.category} permit signal found${record.caseNumber ? ` (${record.caseNumber})` : ''}${record.address ? ` at ${record.address}` : ''}.`,
-    whyNow: 'This permit is an official public construction signal. Capital improvement and alteration activity creates a timely reason to contact the property while work is being planned or underway.',
-    whyThisMatters: 'Commercial roofing, envelope, waterproofing, exterior, alteration, fire, water, and structural permits often indicate conditions where Reliable Restorations can discuss leak investigation, water intrusion inspections, mitigation planning, reconstruction, and building envelope services.',
+    whatChanged: `${items.length} permit${items.length === 1 ? '' : 's'} found at ${address}. Primary signal: ${category}.`,
+    whyNow: 'Multiple or recent official permit records at the same address indicate active work at the property. This creates a timely reason to contact the property while capital work is being planned, permitted, or underway.',
+    whyThisMatters: 'Grouped permits are stronger than isolated permit records. A cluster can indicate a coordinated renovation, capital improvement cycle, or repair program where Reliable Restorations can discuss building envelope services, leak investigation, water intrusion prevention, reconstruction, interior build-back, and annual property documentation.',
     recommendedServices: ['Leak investigation','Water intrusion inspection','Building envelope assessment','Commercial reconstruction','Interior build back','Exterior repairs','Annual property documentation'],
-    evidenceCount: 1,
-    sources: [{ name: record.source, title: record.description || record.title, url: record.link, publishedAt: record.publishedAt }],
+    evidenceCount: items.length,
+    sources: detailLinks,
     signalBreakdown: [
-      { label: record.category, points: Math.round((ratings.opportunity || 0) / 2) },
+      { label: category, points: Math.round((ratings.opportunity || 0) / 2) },
+      { label: `${items.length} permit${items.length === 1 ? '' : 's'} at same address`, points: Math.min(20, items.length * 5) },
       { label: 'Official Mecklenburg permit source', points: 20 },
-      { label: 'Address available', points: record.address ? 8 : 0 },
-      { label: 'Permit value signal', points: record.cost > 100000 ? 8 : 0 }
+      { label: 'Permit value signal', points: totalCost > 100000 ? 8 : 0 },
+      { label: 'Multiple permit categories', points: categories.length > 1 ? 8 : 0 }
     ].filter(x => x.points > 0),
-    permit: { caseNumber: record.caseNumber, address: record.address, parcelId: record.parcelId, cost: record.cost, description: record.description, existingUse: record.existingUse, proposedUse: record.proposedUse }
+    permitCluster: {
+      address,
+      parcelId: newest.parcelId || '',
+      permitCount: items.length,
+      categories,
+      firstIssuedDate: oldest.publishedAt,
+      latestIssuedDate: newest.publishedAt,
+      totalCost,
+      owner: newest.owner || '',
+      permits: permitList
+    },
+    permit: { caseNumber: newest.caseNumber, address: newest.address, parcelId: newest.parcelId, cost: newest.cost, description: newest.description, existingUse: newest.existingUse, proposedUse: newest.proposedUse }
   };
 }
 
@@ -481,7 +584,8 @@ async function main() {
     groups.get(key).items.push(item);
   }
   const fireOpportunities = [...groups.values()].map(buildOpportunity);
-  const permitOpportunities = permitCandidates.map(buildPermitOpportunity);
+  const permitClusters = clusterPermitRecords(permitCandidates);
+  const permitOpportunities = permitClusters.map(buildPermitClusterOpportunity);
   const opportunities = [...fireOpportunities, ...permitOpportunities].sort((a,b) => b.ratings.overall - a.ratings.overall);
   const properties = opportunities.map(o => ({
     propertyId: o.propertyId,
@@ -515,6 +619,7 @@ async function main() {
       duplicateGroupsMerged: candidates.length - fireOpportunities.length,
       permitRecordsRetrieved: permitRaw,
       permitCandidates: permitCandidates.length,
+      permitClusters: typeof permitClusters !== 'undefined' ? permitClusters.length : 0,
       permitExcluded,
       permitOldExcluded
     },
@@ -532,4 +637,4 @@ async function main() {
 
 if (require.main === module) main().catch(err => { console.error(err); process.exit(1); });
 
-module.exports = { parseRss, classifyFire, extractPropertyName, isInsideTargetTerritory, buildOpportunity, classifyPermit, normalizePermitFeature, buildPermitOpportunity };
+module.exports = { parseRss, classifyFire, extractPropertyName, isInsideTargetTerritory, buildOpportunity, classifyPermit, normalizePermitFeature, buildPermitOpportunity, buildPermitClusterOpportunity, clusterPermitRecords };

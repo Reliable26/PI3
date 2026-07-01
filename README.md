@@ -1,3 +1,3 @@
-# PI PERM-001b Certified Mecklenburg Building Permits Connector
+# PI - Property Intelligence
 
-Uses the certified Mecklenburg BuildingPermits FeatureServer and actual field names.
+PERM-002 adds property-first permit clustering. Permits are grouped by address/parcel and ranked by property opportunity heat instead of being shown as standalone records.

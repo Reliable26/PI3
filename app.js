@@ -23,6 +23,28 @@ function sourceRow(h) {
 function scoreBar(label, value) {
   return `<div class="score-row"><span>${label}</span><b>${value}</b><div class="bar"><i style="width:${Math.max(0, Math.min(100, value))}%"></i></div></div>`;
 }
+function money(value) {
+  const n = Number(value || 0);
+  if (!Number.isFinite(n) || n <= 0) return 'Not listed';
+  return n.toLocaleString([], { style:'currency', currency:'USD', maximumFractionDigits:0 });
+}
+function permitClusterBlock(o) {
+  const cluster = o.permitCluster;
+  if (!cluster) return '';
+  const permits = (cluster.permits || []).map(p => `<li>
+    <strong>${p.caseNumber || 'Permit'}</strong> <span>${p.category || ''}</span>
+    <em>${fmtDateTime(p.issuedDate)} • ${money(p.cost)}</em>
+    <small>${p.description || ''}</small>
+    <div class="permit-links">
+      ${p.permitDetailUrl ? `<a href="${p.permitDetailUrl}" target="_blank" rel="noopener">Permit detail</a>` : ''}
+      ${p.contractor ? `<a href="${p.contractorSearchUrl}" target="_blank" rel="noopener">${p.contractor}</a>` : '<span>Contractor/filer not exposed in permit layer</span>'}
+    </div>
+  </li>`).join('');
+  return `<h4>Permit Cluster</h4>
+    <p>${cluster.permitCount || 0} permit${cluster.permitCount === 1 ? '' : 's'} at this address from ${fmtDateTime(cluster.firstIssuedDate)} to ${fmtDateTime(cluster.latestIssuedDate)}. Total listed value: <strong>${money(cluster.totalCost)}</strong>.</p>
+    ${cluster.owner ? `<p><strong>Owner from permit record:</strong> ${cluster.owner}</p>` : ''}
+    <ul class="permits">${permits}</ul>`;
+}
 function opportunityCard(o) {
   const ratings = o.ratings || {};
   const sources = (o.sources || []).map(s => `<li><a href="${s.url}" target="_blank" rel="noopener">${s.name || 'Source'}</a><span>${fmtDateTime(s.publishedAt)}</span><em>${s.title || ''}</em></li>`).join('');
@@ -54,6 +76,7 @@ function opportunityCard(o) {
       <h4>Why Now</h4><p>${o.whyNow || ''}</p>
       <h4>Why This Matters</h4><p>${o.whyThisMatters || ''}</p>
       <h4>Recommended Services</h4><ul>${services}</ul>
+      ${permitClusterBlock(o)}
       <h4>Score Breakdown</h4><ul class="breakdown">${breakdown}</ul>
       <h4>Supporting Public Sources</h4><ul class="sources">${sources}</ul>
     </details>
@@ -77,6 +100,7 @@ async function loadData() {
       metric('Emergency', s.emergencyOpportunities ?? 0),
       metric('Capital Improvement', s.capitalImprovementOpportunities ?? 0),
       metric('Permit Records Retrieved', s.permitRecordsRetrieved ?? 0),
+      metric('Permit Address Clusters', s.permitClusters ?? 0),
       metric('Out of Territory Excluded', s.outOfTerritoryExcluded ?? 0),
       metric('Residential / Noise Excluded', (s.nonCommercialExcluded ?? 0) + (s.permitExcluded ?? 0))
     ].join('');
