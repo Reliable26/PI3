@@ -1,51 +1,34 @@
-import fs from 'node:fs/promises';
-import path from 'node:path';
+import fs from 'fs/promises';
+import path from 'path';
 import { runConnectors } from '../core/connector-manager.js';
 import { buildOpportunities } from '../core/opportunity-engine.js';
-import { commercialFireConnector } from '../connectors/commercial-fire-intelligence.js';
-import territory from '../config/territory.json' assert { type: 'json' };
-import rules from '../config/rules.json' assert { type: 'json' };
-import watchlist from '../config/watchlist.json' assert { type: 'json' };
-import { nowIso } from '../core/utils.js';
 
-const connectors = [commercialFireConnector];
-
-async function main() {
-  const startedAt = nowIso();
-  const { events, health } = await runConnectors(connectors);
-  const built = buildOpportunities(events, rules, territory, watchlist);
-
-  const intelligence = {
-    meta: {
-      generatedAt: nowIso(),
-      startedAt,
-      version: '0.1.0',
-      environment: process.env.GITHUB_ACTIONS ? 'github-actions' : 'local',
-      note: 'Generated at deployment/runtime. Generated JSON should not be committed manually.'
-    },
-    summary: {
-      connectorsConfigured: connectors.length,
-      connectorsPassing: health.filter(h => h.status === 'PASS').length,
-      itemsRetrieved: health.reduce((sum, h) => sum + (h.itemsRetrieved || 0), 0),
-      commercialSignalsFound: events.length,
-      residentialFiltered: built.residentialFiltered + health.reduce((sum, h) => sum + (h.residentialFiltered || 0), 0),
-      opportunitiesCreated: built.opportunities.length,
-      highPriority: built.opportunities.filter(o => o.opportunityScore >= 85).length,
-      averageConfidence: built.opportunities.length ? Math.round(built.opportunities.reduce((sum, o) => sum + o.confidenceScore, 0) / built.opportunities.length) : 0
-    },
-    sourceHealth: health,
-    opportunities: built.opportunities,
-    watchListActivity: built.opportunities.filter(o => o.managementCompany !== 'Needs Verification')
-  };
-
-  await fs.mkdir('dist/data', { recursive: true });
-  await fs.writeFile('dist/data/intelligence.json', JSON.stringify(intelligence, null, 2));
-  await fs.writeFile('dist/data/source-health.json', JSON.stringify(health, null, 2));
-  await fs.writeFile('dist/data/opportunities.json', JSON.stringify(built.opportunities, null, 2));
-  console.log(`PI update complete: ${built.opportunities.length} opportunities from ${events.length} commercial signals.`);
-}
-
-main().catch(error => {
-  console.error(error);
-  process.exit(1);
-});
+const outDir = path.resolve('dist/data');
+await fs.mkdir(outDir, { recursive: true });
+const connectorResults = await runConnectors();
+const events = connectorResults.flatMap(r => r.events || []);
+const { opportunities, rejected } = buildOpportunities(events);
+const payload = {
+  meta: {
+    app: 'PI',
+    version: '0.2.0-developer-preview',
+    generatedAt: new Date().toISOString(),
+    note: 'Generated during GitHub Actions; not committed back to repository.',
+    eventsRetrieved: events.length,
+    opportunitiesCreated: opportunities.length,
+    rejectedEvents: rejected.length
+  },
+  sourceHealth: connectorResults.map(r => ({
+    module: r.connector,
+    version: r.version || 'unknown',
+    status: r.status,
+    durationMs: r.durationMs || 0,
+    itemsRetrieved: r.itemsRetrieved || 0,
+    sourceResults: r.sourceResults || [],
+    error: r.error || null
+  })),
+  opportunities,
+  rejectedSample: rejected.slice(0, 10).map(x => ({ headline: x.event.headline, reason: x.classification.reason, source: x.event.sourceName }))
+};
+await fs.writeFile(path.join(outDir, 'opportunities.json'), JSON.stringify(payload, null, 2));
+console.log(`PI update complete: ${events.length} events, ${opportunities.length} opportunities.`);

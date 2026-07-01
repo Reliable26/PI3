@@ -1,22 +1,23 @@
-# PI - Property Intelligence
+# PI — Property Intelligence
 
-PI is a commercial property intelligence platform designed to identify actionable commercial prospecting opportunities from public sources.
+PI is a commercial property intelligence platform. It is not a CRM. It uses public-source signals to identify and prioritize commercial prospecting opportunities.
 
 ## Install
-1. Copy the contents of this package into the root of a public GitHub repository.
+
+1. Copy the contents of this release into the root of a public GitHub repository.
 2. Commit and push.
-3. In GitHub, open Settings -> Pages.
-4. Set Source to GitHub Actions.
-5. Open Actions -> Update Intelligence -> Run workflow.
-6. Open the Pages URL after deployment completes.
+3. In GitHub, set Settings > Pages > Source to GitHub Actions.
+4. Run Actions > Update Intelligence > Run workflow.
+5. Open the GitHub Pages URL.
 
-## Test
-After deployment, the dashboard should show:
-- Source Health
-- Today's Top Opportunities
-- Opportunity Feed
+## First validation target
 
-If no opportunities appear, check Source Health first. The connector may have retrieved zero commercial fire signals in the latest run.
+This release proves the end-to-end pipeline:
 
-## Development Rule
-Generated data belongs to GitHub Actions deployment output, not Git commits.
+- GitHub Actions runs
+- Node tests pass
+- Google News RSS can be reached
+- Fire/commercial signals are filtered
+- Opportunities are generated
+- Dashboard loads generated data
+- Generated data is deployed as a Pages artifact and is not committed back to Git

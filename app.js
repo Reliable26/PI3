@@ -1,99 +1,55 @@
-async function loadIntelligence() {
-  const status = document.getElementById('lastUpdated');
-  status.textContent = 'Loading intelligence...';
+let currentData = null;
+async function loadData() {
   try {
-    const response = await fetch(`data/intelligence.json?ts=${Date.now()}`, { cache: 'no-store' });
-    if (!response.ok) throw new Error(`No intelligence file found (${response.status})`);
-    const data = await response.json();
-    render(data);
-  } catch (error) {
-    status.textContent = `Last update: no generated data loaded`;
-    document.getElementById('topOpportunities').textContent = 'No intelligence data found yet. Run GitHub Actions -> Update Intelligence.';
-    document.getElementById('sourceHealth').textContent = String(error.message || error);
+    const res = await fetch(`data/opportunities.json?ts=${Date.now()}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    currentData = await res.json();
+  } catch (err) {
+    currentData = { meta: { generatedAt: null, opportunitiesCreated: 0, eventsRetrieved: 0 }, sourceHealth: [], opportunities: [], rejectedSample: [], error: String(err.message || err) };
   }
+  render();
 }
-
-function render(data) {
-  const summary = data.summary || {};
-  document.getElementById('lastUpdated').textContent = `Last update: ${formatDate(data.meta?.generatedAt)}`;
-  document.getElementById('metricOpps').textContent = summary.opportunitiesCreated ?? 0;
-  document.getElementById('metricHigh').textContent = summary.highPriority ?? 0;
-  document.getElementById('metricHealth').textContent = `${summary.connectorsPassing ?? 0}/${summary.connectorsConfigured ?? 0}`;
-  document.getElementById('metricConfidence').textContent = `${summary.averageConfidence ?? 0}%`;
-
-  renderTop(data.opportunities || []);
-  renderHealth(data.sourceHealth || []);
-  renderFeed(data.opportunities || []);
+function render() {
+  const opps = currentData.opportunities || [];
+  const health = currentData.sourceHealth || [];
+  document.getElementById('statusStrip').textContent = currentData.error ? `Data not loaded: ${currentData.error}` : `Loaded ${opps.length} opportunities • ${currentData.meta.eventsRetrieved || 0} events retrieved`;
+  document.getElementById('totalOpps').textContent = opps.length;
+  document.getElementById('highOpps').textContent = opps.filter(o => ['Critical','High'].includes(o.priority)).length;
+  document.getElementById('healthySources').textContent = health.filter(h => h.status === 'PASS').length + '/' + health.length;
+  document.getElementById('lastUpdate').textContent = currentData.meta.generatedAt ? new Date(currentData.meta.generatedAt).toLocaleString() : '—';
+  renderOpps('topOpportunities', opps.slice(0,5));
+  renderOpps('feed', filterOpps(opps));
+  renderHealth(health);
+  renderRejected(currentData.rejectedSample || []);
 }
-
-function renderTop(opportunities) {
-  const el = document.getElementById('topOpportunities');
-  if (!opportunities.length) {
-    el.className = 'cards empty';
-    el.textContent = 'No validated opportunities were created from the latest update.';
-    return;
-  }
-  el.className = 'cards';
-  el.innerHTML = opportunities.slice(0, 10).map(cardHtml).join('');
+function filterOpps(opps) {
+  const q = (document.getElementById('search').value || '').toLowerCase();
+  if (!q) return opps;
+  return opps.filter(o => JSON.stringify(o).toLowerCase().includes(q));
 }
-
-function cardHtml(o, index) {
-  const services = (o.recommendedServices || []).map(s => `<span class="service">${escapeHtml(s)}</span>`).join('');
-  const source = (o.supportingSources || [])[0];
-  return `<article class="card">
-    <div class="card-top">
-      <div>
-        <h3>${index + 1}. ${escapeHtml(o.property)}</h3>
-        <div class="meta">${escapeHtml(o.propertyType)} • ${escapeHtml(o.county)} • ${escapeHtml(o.category)}</div>
-      </div>
-      <div class="score">${o.opportunityScore}</div>
-    </div>
-    <span class="badge">Confidence ${o.confidenceScore}%</span>
-    <p class="reason"><strong>What changed:</strong> ${escapeHtml(o.whatChanged)}</p>
-    <p class="reason"><strong>Why this matters:</strong> ${escapeHtml(o.whyThisMatters)}</p>
-    <div class="services">${services}</div>
-    ${source?.url ? `<p class="meta"><a href="${escapeHtml(source.url)}" target="_blank" rel="noopener">Public source</a></p>` : ''}
-  </article>`;
+function renderOpps(id, opps) {
+  const el = document.getElementById(id);
+  if (!opps.length) { el.innerHTML = '<div class="empty">No opportunities generated yet. Run GitHub Actions → Update Intelligence, then refresh.</div>'; return; }
+  el.innerHTML = opps.map(o => `<div class="opp"><div><h3>${escapeHtml(o.propertyName)}</h3><div><span class="badge">${o.priority}</span><span class="badge">${o.category}</span><span class="badge">Confidence ${o.confidenceScore}</span></div><div class="meta">${escapeHtml(o.address)} • ${escapeHtml(o.county)} • ${escapeHtml(o.propertyType)}</div><p><strong>What changed:</strong> ${escapeHtml(o.whatChanged || '')}</p><p><strong>Why now:</strong> ${escapeHtml(o.whyNow || '')}</p><p><strong>Why this matters:</strong> ${escapeHtml(o.whyThisMatters || '')}</p><div class="services"><strong>Services:</strong> ${(o.recommendedServices || []).map(escapeHtml).join(', ')}</div><div class="meta"><strong>Sources:</strong> ${(o.supportingSources || []).map(s => s.url ? `<a href="${s.url}" target="_blank" rel="noopener">${escapeHtml(s.name)}</a>` : escapeHtml(s.name)).join(', ')}</div></div><div class="score">${o.opportunityScore}</div></div>`).join('');
 }
-
 function renderHealth(health) {
   const el = document.getElementById('sourceHealth');
-  if (!health.length) {
-    el.className = 'health empty';
-    el.textContent = 'No connector results loaded.';
-    return;
-  }
-  el.className = 'health';
-  el.innerHTML = health.map(h => `<div class="health-row">
-    <div>
-      <strong>${escapeHtml(h.connectorName)}</strong><br>
-      <span class="meta">Items: ${h.itemsRetrieved} • Matches: ${h.commercialMatches} • ${h.durationMs}ms</span>
-    </div>
-    <div class="${h.status === 'PASS' ? 'pass' : 'fail'}">${h.status}</div>
-  </div>`).join('');
+  if (!health.length) { el.innerHTML = '<div class="empty">No source health data.</div>'; return; }
+  el.innerHTML = health.map(h => `<div class="source"><div><strong>${escapeHtml(h.module)}</strong><div class="meta">${h.itemsRetrieved || 0} items • ${h.durationMs || 0} ms</div></div><div class="${h.status === 'PASS' ? 'ok' : h.status === 'ERROR' ? 'err' : 'warn'}">${h.status}</div></div>`).join('');
 }
-
-function renderFeed(opportunities) {
-  const el = document.getElementById('opportunityFeed');
-  if (!opportunities.length) {
-    el.className = 'feed empty';
-    el.textContent = 'No opportunities loaded.';
-    return;
-  }
-  el.className = 'feed';
-  el.innerHTML = opportunities.map(o => `<div class="feed-item">
-    <strong>${escapeHtml(o.property)}</strong> — ${escapeHtml(o.whatChanged)}<br>
-    <span class="meta">Score ${o.opportunityScore} • Confidence ${o.confidenceScore} • ${formatDate(o.firstSeen)}</span>
-  </div>`).join('');
+function renderRejected(items) {
+  const el = document.getElementById('rejected');
+  if (!items.length) { el.innerHTML = '<div class="empty">No rejected sample.</div>'; return; }
+  el.innerHTML = items.map(i => `<div class="opp"><div><h3>${escapeHtml(i.headline || '')}</h3><div class="meta">Rejected: ${escapeHtml(i.reason || '')} • ${escapeHtml(i.source || '')}</div></div></div>`).join('');
 }
-
-function formatDate(value) {
-  if (!value) return 'never';
-  return new Date(value).toLocaleString();
+function escapeHtml(s='') { return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c])); }
+function exportCsv() {
+  const opps = currentData?.opportunities || [];
+  const rows = [['Property','Address','County','Type','Category','Score','Confidence','Why Now','Sources'], ...opps.map(o => [o.propertyName,o.address,o.county,o.propertyType,o.category,o.opportunityScore,o.confidenceScore,o.whyNow,(o.supportingSources||[]).map(s=>s.url).join(' ')])];
+  const csv = rows.map(r => r.map(v => `"${String(v || '').replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv], {type:'text/csv'})); a.download = 'pi-opportunities.csv'; a.click();
 }
-function escapeHtml(value) {
-  return String(value ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
-}
-
-document.getElementById('refreshBtn').addEventListener('click', loadIntelligence);
-loadIntelligence();
+document.getElementById('updateBtn').addEventListener('click', loadData);
+document.getElementById('exportBtn').addEventListener('click', exportCsv);
+document.getElementById('search').addEventListener('input', render);
+loadData();

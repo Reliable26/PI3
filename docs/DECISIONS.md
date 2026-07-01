@@ -1,13 +1,10 @@
-# Technical Decisions
+# Decisions
 
-## Decision 001 - Generated data is not committed
-Reason: Avoid merge conflicts and keep source code separate from generated intelligence.
+## Decision 001: Generated intelligence is not committed to Git
+Reason: Avoids merge conflicts and keeps the repository focused on source code.
 
-## Decision 002 - GitHub Pages + GitHub Actions first
-Reason: Free hosting and automation while proving the product.
+## Decision 002: PI is not a CRM
+Reason: PI generates intelligence. CRM manages relationships.
 
-## Decision 003 - Connector-first architecture
-Reason: Each data source can fail or change without breaking the whole platform.
-
-## Decision 004 - Commercial-only filtering in the engine
-Reason: Keep business logic consistent across all connectors.
+## Decision 003: Validate source access before production modules
+Reason: Public data sources can block scraping or change format.

@@ -1,19 +1,20 @@
-# PI Core Sprint 1 v0.1.0
+# PI v0.2.0 Developer Preview
 
 ## Added
-- Root-ready GitHub Pages project.
-- GitHub Actions update workflow.
-- Connector manager.
-- Source health engine.
-- Opportunity engine.
-- Scoring engine.
-- Commercial Fire Intelligence connector v0.1.0.
-- Dashboard showing source health, top opportunities, and opportunity feed.
+- End-to-end GitHub Actions deployment without committing generated data
+- Commercial Fire Intelligence using Google News RSS queries
+- Fire/commercial classifier
+- Residential/noise filters
+- Opportunity scoring and confidence scoring
+- Source Health panel
+- Rejected Sample panel for validation
+- CSV export
 
-## Important
-Generated intelligence is deployed as a Pages artifact and is not committed back to the repository.
+## Purpose
+This release exists to prove that PI can retrieve a live public source, classify events, generate opportunities, and publish a dashboard.
 
-## Known Limits
-- Commercial Fire Intelligence currently uses public Google News RSS queries as the first public-source pass.
-- Property ownership and management are marked Needs Verification unless present in the public signal.
-- Mecklenburg permits and Register of Deeds connectors are planned next.
+## Known limitations
+- This is not yet a full permit connector.
+- Google News is a validation source, not the final source strategy.
+- Property owner/management fields require future property-record enrichment.
+- Some valid fire opportunities may be missed until source coverage expands.

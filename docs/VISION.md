@@ -1,20 +1,13 @@
-# PI - Property Intelligence
+# PI Vision
 
-## Mission
-Identify high-value commercial property opportunities before competitors by converting public information into actionable business development intelligence.
+PI exists to identify and prioritize commercial property opportunities before competitors.
 
-## Daily Question
-Where should I go today?
+PI is not a CRM, estimating system, project management tool, or document repository.
 
-## Non-Negotiables
-- Commercial only.
-- Public sources only.
-- Never guess.
-- Every opportunity must explain what changed, why it matters, recommended services, confidence, and supporting sources.
-- Trust is more important than volume.
+Every opportunity should answer:
 
-## Excluded
-- Residential
-- Churches and religious organizations
-- Federal government
-- State government
+- What changed?
+- Why now?
+- Why does it matter?
+- What services should be discussed?
+- What public sources support it?

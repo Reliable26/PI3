@@ -7,39 +7,38 @@
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <main class="shell">
-    <section class="topbar">
-      <div class="status" id="lastUpdated">Last update: waiting</div>
-      <div class="actions">
-        <button id="refreshBtn">Update Intelligence</button>
+  <header class="topbar">
+    <div></div>
+    <div class="actions">
+      <button id="updateBtn">Update Intelligence</button>
+      <button id="exportBtn">Export CSV</button>
+    </div>
+  </header>
+  <main class="container">
+    <section class="status-strip" id="statusStrip">Loading...</section>
+    <section class="cards">
+      <div class="card"><span>Today's Opportunities</span><strong id="totalOpps">0</strong></div>
+      <div class="card"><span>High Priority</span><strong id="highOpps">0</strong></div>
+      <div class="card"><span>Sources Healthy</span><strong id="healthySources">0</strong></div>
+      <div class="card"><span>Last Update</span><strong id="lastUpdate">—</strong></div>
+    </section>
+    <section class="grid">
+      <div class="panel wide">
+        <div class="panel-head"><h2>Today's Top Opportunities</h2><span>Ranked by score and confidence</span></div>
+        <div id="topOpportunities" class="list"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head"><h2>Source Health</h2></div>
+        <div id="sourceHealth" class="source-list"></div>
       </div>
     </section>
-
-    <section class="metrics">
-      <article><span>Opportunities</span><strong id="metricOpps">0</strong></article>
-      <article><span>High Priority</span><strong id="metricHigh">0</strong></article>
-      <article><span>Source Health</span><strong id="metricHealth">0/0</strong></article>
-      <article><span>Avg Confidence</span><strong id="metricConfidence">0%</strong></article>
+    <section class="panel">
+      <div class="panel-head"><h2>Opportunity Feed</h2><input id="search" placeholder="Search property, category, source..." /></div>
+      <div id="feed" class="feed"></div>
     </section>
-
-    <section class="grid">
-      <section class="panel span-2">
-        <div class="panel-head">
-          <h2>Today's Top Opportunities</h2>
-          <span id="routeStatus">Ranked by score</span>
-        </div>
-        <div id="topOpportunities" class="cards empty">No opportunities loaded yet.</div>
-      </section>
-
-      <section class="panel">
-        <div class="panel-head"><h2>Source Health</h2></div>
-        <div id="sourceHealth" class="health empty">No connector results loaded.</div>
-      </section>
-
-      <section class="panel span-3">
-        <div class="panel-head"><h2>Opportunity Feed</h2></div>
-        <div id="opportunityFeed" class="feed empty">No feed items loaded.</div>
-      </section>
+    <section class="panel muted">
+      <div class="panel-head"><h2>Rejected Sample</h2><span>Useful for validating filters</span></div>
+      <div id="rejected" class="feed"></div>
     </section>
   </main>
   <script src="app.js"></script>
