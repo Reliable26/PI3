@@ -1,5 +1,3 @@
 # Architecture
 
-Public Sources -> Connectors -> Classifier -> Opportunity Engine -> Scoring -> Static Dashboard
-
-Generated data is deployed as a GitHub Pages artifact. It is not committed back to the repository.
+GitHub Pages frontend. GitHub Actions runs intelligence updates and deploys generated data as a Pages artifact. Generated JSON is not committed to Git.

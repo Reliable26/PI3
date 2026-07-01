@@ -1,6 +1,9 @@
-# Connectors
+# Intelligence Modules
 
-| Module | Status | Version | Access Method |
-|---|---|---:|---|
-| Commercial Fire Intelligence | Developer Preview | 0.2.0 | Google News RSS |
-| Permit Intelligence | Research | 0.1.0 | Source validation pending |
+## Commercial Fire Intelligence
+Status: Developer Preview
+Sources: Google News RSS search queries
+Purpose: Find commercial and multifamily fire signals.
+
+## Permit Intelligence
+Status: Research

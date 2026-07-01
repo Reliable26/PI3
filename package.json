@@ -1,11 +1,1 @@
-{
-  "name": "pi-property-intelligence",
-  "version": "0.2.0",
-  "type": "module",
-  "private": true,
-  "scripts": {
-    "test": "node tests/run-tests.js",
-    "update": "node scripts/update-intelligence.js",
-    "build": "node scripts/build-site.js"
-  }
-}
+{"name":"pi-property-intelligence","version":"0.2.1","type":"module","scripts":{"test":"node scripts/run-tests.js","build":"node scripts/build-static.js","update":"node scripts/update-intelligence.js"},"dependencies":{}}
