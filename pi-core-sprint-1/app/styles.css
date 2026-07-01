@@ -1,0 +1,41 @@
+:root {
+  --bg: #eef2f6;
+  --panel: #ffffff;
+  --ink: #152033;
+  --muted: #667085;
+  --line: #d7dde7;
+  --blue: #17365d;
+  --blue2: #244a7a;
+  --good: #18794e;
+  --warn: #a15c00;
+  --bad: #b42318;
+}
+* { box-sizing: border-box; }
+body { margin: 0; font-family: Arial, Helvetica, sans-serif; background: var(--bg); color: var(--ink); }
+.topbar { height: 64px; background: var(--blue); display: flex; align-items: center; justify-content: space-between; padding: 0 24px; }
+.actions { display: flex; gap: 12px; }
+button { border: 0; background: #fff; color: var(--blue); border-radius: 8px; padding: 10px 14px; font-weight: 700; cursor: pointer; }
+button:hover { background: #eaf1fb; }
+.layout { max-width: 1280px; margin: 24px auto; padding: 0 20px; }
+.metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 18px; }
+.card, .panel { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; box-shadow: 0 3px 14px rgba(16,24,40,.05); }
+.card { padding: 18px; }
+.card span { display: block; color: var(--muted); font-size: 13px; margin-bottom: 8px; }
+.card strong { font-size: 30px; }
+.panel { padding: 18px; margin-bottom: 18px; }
+.panelHead { display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--line); padding-bottom: 12px; margin-bottom: 12px; }
+h2 { font-size: 18px; margin: 0; }
+#dataStatus { color: var(--muted); font-size: 13px; }
+.grid { display: grid; grid-template-columns: 1fr 1.5fr; gap: 18px; }
+.item { border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 12px; background: #fbfcfe; }
+.item h3 { margin: 0 0 6px; font-size: 16px; }
+.meta { color: var(--muted); font-size: 13px; line-height: 1.4; }
+.badge { display: inline-block; border-radius: 999px; padding: 3px 8px; font-size: 12px; font-weight: 700; background: #eef4ff; color: var(--blue2); margin-right: 6px; }
+.score { font-weight: 800; color: var(--blue); }
+.empty { color: var(--muted); padding: 12px; }
+.healthRow { display:flex; justify-content:space-between; align-items:center; border-bottom:1px solid var(--line); padding:10px 0; gap: 14px; }
+.healthRow:last-child { border-bottom: 0; }
+.statusPass { color: var(--good); font-weight: 800; }
+.statusWarn { color: var(--warn); font-weight: 800; }
+.statusFail { color: var(--bad); font-weight: 800; }
+@media (max-width: 900px) { .metrics, .grid { grid-template-columns: 1fr; } .topbar { height:auto; padding:14px; } .actions { flex-wrap: wrap; justify-content:flex-end; } }

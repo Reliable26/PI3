@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dashboard</title>
+  <link rel="stylesheet" href="app/styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div></div>
+    <div class="actions">
+      <button id="updateBtn">Update Intelligence</button>
+      <button id="routeBtn">Today's Top Opportunities</button>
+    </div>
+  </header>
+
+  <main class="layout">
+    <section class="metrics">
+      <div class="card"><span>Opportunities</span><strong id="metricOpportunities">0</strong></div>
+      <div class="card"><span>High Priority</span><strong id="metricHigh">0</strong></div>
+      <div class="card"><span>Sources Online</span><strong id="metricSources">0</strong></div>
+      <div class="card"><span>Last Update</span><strong id="metricUpdated">Never</strong></div>
+    </section>
+
+    <section class="panel">
+      <div class="panelHead">
+        <h2>Today's Top Opportunities</h2>
+        <span id="dataStatus">Waiting for data</span>
+      </div>
+      <div id="topOpportunities" class="list empty">Run Update Intelligence from GitHub Actions, then click Update Intelligence here.</div>
+    </section>
+
+    <section class="grid">
+      <div class="panel">
+        <div class="panelHead"><h2>Source Health</h2></div>
+        <div id="sourceHealth" class="list empty">No source health data loaded.</div>
+      </div>
+      <div class="panel">
+        <div class="panelHead"><h2>New Opportunities</h2></div>
+        <div id="opportunityFeed" class="list empty">No opportunities loaded.</div>
+      </div>
+    </section>
+  </main>
+
+  <script src="app/app.js"></script>
+</body>
+</html>

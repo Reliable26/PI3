@@ -1,18 +1,22 @@
-# Property Intelligence MVP
+# PI - Property Intelligence
 
-Static GitHub Pages dashboard with a GitHub Actions intelligence update workflow.
+PI is a commercial property intelligence platform designed to identify actionable commercial prospecting opportunities from public sources.
 
-## Setup
+## Install
+1. Copy the contents of this package into the root of a public GitHub repository.
+2. Commit and push.
+3. In GitHub, open Settings -> Pages.
+4. Set Source to GitHub Actions.
+5. Open Actions -> Update Intelligence -> Run workflow.
+6. Open the Pages URL after deployment completes.
 
-1. Create a public GitHub repository.
-2. Copy these files directly into the repository root. Do not copy the containing folder.
-3. Commit and push.
-4. Go to Settings > Pages and set Source to GitHub Actions.
-5. Go to Actions > Update Intelligence > Run workflow.
-6. Open the GitHub Pages URL.
+## Test
+After deployment, the dashboard should show:
+- Source Health
+- Today's Top Opportunities
+- Opportunity Feed
 
-## Notes
+If no opportunities appear, check Source Health first. The connector may have retrieved zero commercial fire signals in the latest run.
 
-- Generated data is deployed as a Pages artifact and is not committed back into the repository.
-- The dashboard contains no company branding.
-- The first connector uses public GDELT news/document signals. Official permit and fire connectors can be added next.
+## Development Rule
+Generated data belongs to GitHub Actions deployment output, not Git commits.

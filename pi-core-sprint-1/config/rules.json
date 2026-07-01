@@ -1,0 +1,16 @@
+{
+  "territory": {
+    "counties": ["Mecklenburg", "Cabarrus", "Gaston", "Union", "Iredell", "York", "Lancaster"],
+    "cities": ["Charlotte", "Concord", "Gastonia", "Monroe", "Mooresville", "Statesville", "Rock Hill", "Fort Mill", "Indian Land", "Lancaster"]
+  },
+  "includePropertyTypes": ["Multifamily", "Hotel", "Healthcare", "Office", "Retail", "Industrial", "Warehouse", "Education", "Government"],
+  "excludeTerms": ["single family", "single-family", "residential", "house fire", "church", "religious", "federal", "state government", "vehicle fire", "brush fire", "dumpster fire"],
+  "watchCompanies": ["Knightvest", "Bell Partners", "MAA", "Cortland", "Asset Living", "Willow Bridge", "Cushman & Wakefield", "Lincoln Property Company", "RPM Living", "Fogelman", "BH Management", "Morgan Properties"],
+  "serviceMap": {
+    "Fire": ["Fire Restoration", "Smoke Remediation", "Water Mitigation", "Commercial Reconstruction"],
+    "Roofing": ["Roofing", "Leak Investigation", "Building Envelope", "Water Intrusion Investigation"],
+    "Water": ["Water Mitigation", "Mold Remediation", "Leak Investigation", "Commercial Reconstruction"],
+    "Capital Improvement": ["Commercial Reconstruction", "Exterior Repairs", "Exterior Painting", "Amenity Renovations"],
+    "Management Change": ["Annual Property Documentation", "Building Condition Assessments", "Emergency Response Planning"]
+  }
+}

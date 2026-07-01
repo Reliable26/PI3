@@ -1,0 +1,12 @@
+{
+  "includePropertyTypes": ["apartment", "multifamily", "student housing", "senior housing", "hotel", "extended stay", "office", "retail", "shopping center", "industrial", "warehouse", "medical", "hospital", "assisted living", "skilled nursing", "school", "university", "college", "government"],
+  "excludeTerms": ["single family", "single-family", "house fire", "residential home", "church", "religious", "federal", "state government", "townhome", "townhouse", "condo", "condominium", "vehicle fire", "car fire", "brush fire", "dumpster fire", "outside fire", "grass fire"],
+  "fireIncludeTerms": ["apartment fire", "commercial fire", "structure fire", "working fire", "2 alarm", "3 alarm", "hotel fire", "warehouse fire", "office fire", "retail fire", "school fire", "medical", "assisted living", "smoke", "sprinkler", "fire suppression"],
+  "targetServices": {
+    "fire": ["Fire Restoration", "Smoke Remediation", "Water Mitigation", "Emergency Response", "Commercial Reconstruction"],
+    "permit_roof": ["Roofing", "Leak Investigation", "Building Envelope", "Water Intrusion Investigation"],
+    "management_change": ["Annual Property Documentation", "Building Condition Assessment", "Emergency Response Agreement"],
+    "acquisition": ["Building Condition Assessment", "Exterior Repairs", "Capital Improvements", "Emergency Response Agreement"],
+    "default": ["Building Condition Assessment", "Water Intrusion Inspection", "Commercial Reconstruction"]
+  }
+}

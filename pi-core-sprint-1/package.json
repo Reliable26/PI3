@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "update": "node scripts/update-intelligence.js",
-    "test": "node tests/run-tests.js"
+    "build": "node scripts/build-site.js",
+    "test": "node scripts/run-tests.js"
   }
 }

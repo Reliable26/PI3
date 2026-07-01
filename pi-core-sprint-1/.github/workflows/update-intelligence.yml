@@ -3,8 +3,6 @@ name: Update Intelligence
 on:
   workflow_dispatch:
   schedule:
-    # 9:00 PM Eastern during standard time = 02:00 UTC next day.
-    # Daylight savings will be adjusted in a later release.
     - cron: '0 2 * * *'
 
 permissions:
@@ -22,25 +20,21 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '24'
-
       - name: Run tests
         run: npm test
-
-      - name: Build static site
-        run: node scripts/build-site.js
-
-      - name: Update intelligence data
+      - name: Update intelligence
         run: npm run update
-
+      - name: Build site
+        run: npm run build
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: dist
-
+          path: './dist'
       - name: Deploy to GitHub Pages
         uses: actions/deploy-pages@v4

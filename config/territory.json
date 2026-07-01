@@ -1,0 +1,5 @@
+{
+  "states": ["NC", "SC"],
+  "counties": ["Mecklenburg", "Cabarrus", "Gaston", "Union", "Iredell", "York", "Lancaster"],
+  "cities": ["Charlotte", "Concord", "Gastonia", "Monroe", "Mooresville", "Huntersville", "Pineville", "Matthews", "Rock Hill", "Fort Mill", "Lancaster"]
+}
