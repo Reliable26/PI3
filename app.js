@@ -97,19 +97,26 @@ function opportunityListItem(o, rank) {
   const score = o.ratings?.overall ?? 0;
   const p = findProperty(o.propertyId) || {};
   const selected = state.selectedId === o.id ? ' selected' : '';
-  return `<button type="button" class="opp-row${selected}" data-id="${esc(o.id)}">
-    <span class="thumb">${rank}</span>
-    <span class="opp-main"><strong>${esc(o.propertyName || 'Property Requires Verification')}</strong><small>${esc(p.address || o.county || '')}</small><em>${esc(propertySubline(o))}</em></span>
-    <span class="opp-score heat-${heatLabel(score).toLowerCase()}"><b>${score}</b><small>${heatLabel(score)}</small></span>
-    <span class="chev">›</span>
-  </button>`;
+  const expanded = state.selectedId === o.id ? `<div class="inline-detail">${renderDetail(o, true)}</div>` : '';
+  return `<article class="opp-card${selected}" data-id="${esc(o.id)}">
+    <button type="button" class="opp-row${selected}" data-id="${esc(o.id)}" aria-expanded="${state.selectedId === o.id ? 'true' : 'false'}">
+      <span class="thumb">${rank}</span>
+      <span class="opp-main"><strong>${esc(o.propertyName || 'Property Requires Verification')}</strong><small>${esc(p.address || o.county || '')}</small><em>${esc(propertySubline(o))}</em></span>
+      <span class="opp-score heat-${heatLabel(score).toLowerCase()}"><b>${score}</b><small>${heatLabel(score)}</small></span>
+      <span class="chev">${state.selectedId === o.id ? '⌃' : '⌄'}</span>
+    </button>
+    ${expanded}
+  </article>`;
 }
 function renderOpportunities() {
   const items = filteredSortedOpportunities();
+  const visible = items.slice(0, 10);
+  if (!state.selectedId && visible.length) state.selectedId = visible[0].id;
+  if (state.selectedId && !visible.some(o => o.id === state.selectedId) && visible.length) state.selectedId = visible[0].id;
   document.getElementById('feedStatus').textContent = `Showing ${Math.min(items.length, 10)} of ${items.length} matching properties`;
-  document.getElementById('opportunities').innerHTML = items.slice(0, 10).map((o,i) => opportunityListItem(o, i + 1)).join('') || '<p class="empty">No properties match the current filters.</p>';
+  document.getElementById('opportunities').innerHTML = visible.map((o,i) => opportunityListItem(o, i + 1)).join('') || '<p class="empty">No properties match the current filters.</p>';
   document.querySelectorAll('.opp-row').forEach(btn => btn.addEventListener('click', () => selectOpportunity(btn.dataset.id)));
-  if (!state.selectedId && items.length) selectOpportunity(items[0].id, false);
+  wireDetailInteractions();
   renderMap(items.slice(0, 12));
 }
 function scoreBox(label, value, cls='') {
@@ -197,14 +204,14 @@ function renderDetailBody(o, p, score, intelligenceScore) {
   if (state.selectedTab === 'evidence') return renderEvidenceTab(o);
   return renderOverviewTab(o, p, score, intelligenceScore);
 }
-function renderDetail(o) {
+function renderDetail(o, inline=false) {
   if (!o) return '<div class="empty-detail">Select a property to view its Property Intelligence Record.</div>';
   const p = findProperty(o.propertyId) || {};
   const score = o.ratings?.overall ?? 0;
   const intelligenceScore = p.dataQuality?.overall || o.ratings?.confidence || 0;
   return `<div class="detail-head">
       <div><h2>${esc(o.propertyName || 'Property Requires Verification')}</h2><p>${esc(p.address || o.county || '')}</p><small>${[p.propertyType, p.permitSummary?.permitCount ? `${p.permitSummary.permitCount} permits` : '', p.parcelId ? `Parcel ${p.parcelId}` : ''].filter(Boolean).join(' • ')}</small></div>
-      <div class="detail-scores">${scoreBox('Opportunity Score', score, 'opportunity')}${scoreBox('Intelligence Score', intelligenceScore, 'intel')}</div>
+      <div class="detail-actions"><div class="detail-scores">${scoreBox('Opportunity Score', score, 'opportunity')}${scoreBox('Intelligence Score', intelligenceScore, 'intel')}</div>${inline ? '<button type="button" class="collapse-btn" data-collapse="1">Collapse</button>' : ''}</div>
     </div>
     <div class="tab-row" role="tablist">
       ${detailTabButton('overview', 'Overview')}
@@ -220,18 +227,23 @@ function selectOpportunity(id, updateList=true) {
   if (!o) return;
   const isNewSelection = state.selectedId !== o.id;
   state.selectedId = o.id;
-  if (isNewSelection && !['overview','timeline','details','map','evidence'].includes(state.selectedTab)) state.selectedTab = 'overview';
-  document.getElementById('propertyDetail').innerHTML = renderDetail(o);
-  document.querySelectorAll('.tab-btn').forEach(btn => btn.addEventListener('click', () => {
-    state.selectedTab = btn.dataset.tab || 'overview';
-    document.getElementById('propertyDetail').innerHTML = renderDetail(o);
-    wireDetailInteractions(o);
-  }));
-  wireDetailInteractions(o);
+  if (isNewSelection) state.selectedTab = 'overview';
   if (updateList) renderOpportunities();
 }
-function wireDetailInteractions(o) {
-  document.querySelectorAll('.copy-btn').forEach(btn => btn.addEventListener('click', async () => {
+function wireDetailInteractions() {
+  document.querySelectorAll('.tab-btn').forEach(btn => btn.addEventListener('click', (event) => {
+    event.stopPropagation();
+    state.selectedTab = btn.dataset.tab || 'overview';
+    renderOpportunities();
+  }));
+  document.querySelectorAll('.collapse-btn').forEach(btn => btn.addEventListener('click', (event) => {
+    event.stopPropagation();
+    state.selectedId = null;
+    state.selectedTab = 'overview';
+    renderOpportunities();
+  }));
+  document.querySelectorAll('.copy-btn').forEach(btn => btn.addEventListener('click', async (event) => {
+    event.stopPropagation();
     const value = btn.dataset.copy || '';
     try { await navigator.clipboard.writeText(value); btn.textContent = 'Copied'; setTimeout(() => btn.textContent = 'Copy Permit #', 1200); }
     catch { btn.textContent = value; }
@@ -305,7 +317,7 @@ async function loadData() {
     document.getElementById('metrics').innerHTML = metricCard('Status', 'No Data', 'Run GitHub Actions');
     document.getElementById('briefLine').textContent = 'Run GitHub Actions → Update Intelligence, then refresh this page.';
     document.getElementById('opportunities').innerHTML = '<p class="empty">Run GitHub Actions → Update Intelligence, then refresh this page.</p>';
-    document.getElementById('propertyDetail').innerHTML = '<div class="empty-detail">No data loaded.</div>';
+    const detail = document.getElementById('propertyDetail'); if (detail) detail.innerHTML = '<div class="empty-detail">No data loaded.</div>';
   }
 }
 document.getElementById('refreshBtn').addEventListener('click', loadData);
