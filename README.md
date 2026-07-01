@@ -1,16 +1,16 @@
-# PI v0.2.4 PERM-001 Official Mecklenburg Permit Connector
+# PI PERM-001a Official Mecklenburg Permit Connector Fix
 
-This release adds the first official permit data connector using Mecklenburg County public ArcGIS Building Permits FeatureServer.
+This build fixes PERM-001 so it points to Mecklenburg's Accela Building Permits FeatureServer and maps the correct live field names.
 
 ## Install
-Copy the contents of this package into the PI3 repository root, replace files, commit, push, then run GitHub Actions -> Update Intelligence.
+Copy contents into the PI3 repository root, replace files, commit, push, then run GitHub Actions > Update Intelligence.
 
-## What to validate
-- GitHub Action succeeds.
-- Source Health shows Mecklenburg Building Permits ArcGIS.
-- Dashboard metrics show Permit Records Retrieved.
-- Capital Improvement opportunities appear if qualifying permit records are found inside the configured permit age window.
-- Fire opportunities continue to work.
+Commit message:
 
-## Commit message
-PI PERM-001 official Mecklenburg permit connector
+PI PERM-001a official Mecklenburg Accela permit connector fix
+
+## What to verify
+- GitHub Action passes.
+- Source Health shows Mecklenburg Building Permits Accela.
+- Permit records retrieved is greater than 0.
+- Capital Improvement opportunities appear if qualified commercial target permits are present in the latest records.

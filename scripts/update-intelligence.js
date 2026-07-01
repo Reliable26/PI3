@@ -257,7 +257,7 @@ function buildArcGisQueryUrl(source) {
     where: '1=1',
     outFields: 'CaseNumber,Descriptio,IssuedDate,Expiration,Address,BLOCKLOT,ExistingUs,ProposedUs,Cost,Neighborho',
     returnGeometry: 'false',
-    orderByFields: 'IssuedDate DESC',
+    orderByFields: 'issue_date DESC',
     resultRecordCount: String(source.resultRecordCount || 500),
     f: 'json'
   });
@@ -275,13 +275,37 @@ async function fetchPermitSource(source) {
   return { source, url, ok: res.ok && Array.isArray(features), status: res.status, durationMs: Date.now() - started, features, rawText: text.slice(0, 300) };
 }
 
+function firstValue(attrs, names) {
+  for (const name of names) {
+    const v = attrs[name];
+    if (v !== undefined && v !== null && String(v).trim() !== '') return v;
+  }
+  return '';
+}
+
+function permitText(attrs) {
+  return [
+    firstValue(attrs, ['description_of_work','description','Descriptio']),
+    firstValue(attrs, ['project_name']),
+    firstValue(attrs, ['permit_type','type_of_work']),
+    firstValue(attrs, ['occupancy_code','usdc_code_and_description','construction_type']),
+    firstValue(attrs, ['ProposedUs']),
+    firstValue(attrs, ['ExistingUs']),
+    firstValue(attrs, ['project_address','Address'])
+  ].join(' ');
+}
+
 function classifyPermit(attrs) {
-  const desc = String(attrs.Descriptio || '');
-  const proposed = String(attrs.ProposedUs || '');
-  const existing = String(attrs.ExistingUs || '');
-  const text = normalizeText(`${desc} ${proposed} ${existing} ${attrs.Address || ''}`);
+  const rawText = permitText(attrs);
+  const text = normalizeText(rawText);
   const hasTarget = (settings.permitTargetTerms || []).some(t => text.includes(normalizeText(t)));
-  const hasCommercial = (settings.permitCommercialTerms || []).some(t => text.includes(normalizeText(t))) || /com|bus|off|ret|ind|apt|hot|med|edu/i.test(`${proposed} ${existing}`);
+  const commercialHints = [
+    ...(settings.permitCommercialTerms || []),
+    'bldg commercial','building commercial','commercial building','non residential','nonresidential','mercantile','business','assembly','institutional','educational','hotel','apartment','multi family','multifamily','office','retail','industrial','warehouse','restaurant','medical'
+  ];
+  const residentialOnly = ['single family','sfd','duplex','townhome','townhouse','deck','pool','shed','detached garage'];
+  if (residentialOnly.some(t => text.includes(normalizeText(t)))) return { keep:false, category:'Residential/Unknown Permit', reason:'Residential-only permit signal' };
+  const hasCommercial = commercialHints.some(t => text.includes(normalizeText(t))) || /\b(com|bus|off|ret|ind|apt|hot|med|edu)\b/i.test(rawText);
   if (!hasTarget) return { keep:false, category:'Non-target Permit', reason:'No Reliable service-related permit keyword' };
   if (!hasCommercial) return { keep:false, category:'Residential/Unknown Permit', reason:'No commercial property signal' };
   const catChecks = [
@@ -300,15 +324,24 @@ function classifyPermit(attrs) {
   return { keep:true, category:'Capital Improvement', reason:'Matched target commercial permit' };
 }
 
+function parseMoney(value) {
+  if (value === null || value === undefined || value === '') return 0;
+  const n = Number(String(value).replace(/[^0-9.\-]/g, ''));
+  return Number.isFinite(n) ? n : 0;
+}
+
 function normalizePermitFeature(feature, source) {
   const attrs = feature.attributes || {};
-  const issuedIso = esriDateToIso(attrs.IssuedDate);
+  const issuedIso = esriDateToIso(firstValue(attrs, ['issue_date','IssuedDate']));
   const classification = classifyPermit(attrs);
-  const address = String(attrs.Address || '').trim();
-  const desc = String(attrs.Descriptio || '').trim();
+  const address = String(firstValue(attrs, ['project_address','Address'])).trim();
+  const desc = String(firstValue(attrs, ['description_of_work','description','Descriptio'])).trim();
+  const cost = parseMoney(firstValue(attrs, ['building_construction_cost_customer','building_construction_cost_system','Cost']));
+  const permitNumber = firstValue(attrs, ['permit_number','CaseNumber']);
+  const parcel = firstValue(attrs, ['cama_parcel_number','matparcelnum','BLOCKLOT']);
   return {
     module: 'Permit Intelligence',
-    title: `${classification.category}: ${address || attrs.CaseNumber || 'Mecklenburg permit'}`,
+    title: `${classification.category}: ${address || permitNumber || 'Mecklenburg permit'}`,
     description: desc,
     link: source.sourceUrl || source.url,
     source: source.name,
@@ -318,13 +351,13 @@ function normalizePermitFeature(feature, source) {
     classificationReason: classification.reason,
     keep: classification.keep,
     address,
-    caseNumber: attrs.CaseNumber || '',
-    parcelId: attrs.BLOCKLOT || '',
-    existingUse: attrs.ExistingUs || '',
-    proposedUse: attrs.ProposedUs || '',
-    cost: attrs.Cost || 0,
-    neighborhood: attrs.Neighborho || '',
-    propertyName: address || 'Property Requires Verification',
+    caseNumber: permitNumber || '',
+    parcelId: parcel || '',
+    existingUse: firstValue(attrs, ['ExistingUs','occupancy_code','usdc_code_and_description']),
+    proposedUse: firstValue(attrs, ['ProposedUs','permit_type','type_of_work']),
+    cost,
+    neighborhood: firstValue(attrs, ['Neighborho','tax_jurisdiction']),
+    propertyName: address || firstValue(attrs, ['project_name']) || 'Property Requires Verification',
     opportunityClass: 'Capital Improvement',
     raw: attrs
   };

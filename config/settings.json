@@ -1,5 +1,5 @@
 {
-  "version": "0.2.4-perm001",
+  "version": "0.2.4a-perm001-accela",
   "territoryName": "Charlotte Metro",
   "emergencyMaxAgeHours": 72,
   "permitMaxAgeDays": 730,
@@ -17,10 +17,10 @@
       "id": "meck-building-permits-arcgis",
       "name": "Mecklenburg Building Permits ArcGIS",
       "type": "arcgis-feature-layer",
-      "url": "https://services1-nocdn.arcgis.com/0MSEUqKaxRlEPj5g/ArcGIS/rest/services/Building_Permits/FeatureServer/0/query",
-      "sourceUrl": "https://services1-nocdn.arcgis.com/0MSEUqKaxRlEPj5g/ArcGIS/rest/services/Building_Permits/FeatureServer/0",
+      "url": "https://meckgis.mecklenburgcountync.gov/server/rest/services/BuildingPermits_Accela/FeatureServer/0/query",
+      "sourceUrl": "https://meckgis.mecklenburgcountync.gov/server/rest/services/BuildingPermits_Accela/FeatureServer/0",
       "enabled": true,
-      "resultRecordCount": 500
+      "resultRecordCount": 1000
     }
   ],
   "targetCounties": ["Mecklenburg", "Cabarrus", "Gaston", "Union", "Iredell", "York", "Lancaster"],

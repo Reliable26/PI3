@@ -1,17 +1,11 @@
-# Release Notes - PI v0.2.4 PERM-001
+# PI PERM-001a Official Mecklenburg Permit Connector Fix
 
-## Added
-- Official Mecklenburg Building Permits ArcGIS FeatureServer connector.
-- Permit classification for Roofing, Waterproofing, Building Envelope, Exterior Renovation, Commercial Alteration, Fire Restoration, Water Damage, Structural Repair, and Capital Improvement.
-- Capital Improvement opportunity class.
-- Permit source-health reporting.
-- Permit records retrieved dashboard metric.
+## Fixed
+- Replaced the incorrect permit FeatureServer with Mecklenburg's Accela Building Permits FeatureServer.
+- Updated field mapping from legacy names to live Accela field names.
+- Reads `permit_number`, `permit_type`, `issue_date`, `project_address`, `description_of_work`, `owner_name`, construction cost, parcel, units, and square footage where available.
+- Normalizes official permit records into Capital Improvement opportunities.
 
-## Preserved
-- Previous dashboard format.
-- Fire Intelligence pipeline.
-- Strict territory filter for news/fire results.
-- Source links and published dates.
-
-## Notes
-This connector validates the official ArcGIS permit layer first. If records are stale or not detailed enough, the next step is to connect the Daily Building Permits Issued report or another structured source.
+## Validation
+- Unit tests pass.
+- Connector now targets the official Mecklenburg ArcGIS REST layer that supports JSON queries.
