@@ -1,20 +1,14 @@
-# PI QE-001 Qualification Engine
+# PI v0.2.2c — Format Rollback + Strict Territory Qualification
 
-## Added
-- Qualification Engine
-- Territory filter
-- Syndicated/world/national URL filter
-- Residential and excluded-sector filtering
-- Freshness filtering
-- Rejection diagnostics
-- Why It Qualified output
-- Opportunity Rating dimensions
+## Fixed
+- Restores the prior dashboard layout/format from v0.2.2b.
+- Removes the looser source-based territory logic that allowed out-of-market articles.
+- Rejects local-outlet world/national/international syndicated articles unless the article text itself contains target territory terms.
+- Adds section rejection for `/world/`, `/national/`, `/international/`, and related category markers.
 
-## Improved
-- Source health output
-- Evidence display
-- Duplicate grouping
-
-## Known limitations
-- Property enrichment is not yet connected to county property records.
-- Permit Intelligence is pending source validation.
+## Still Included
+- Recent emergency filter.
+- Article published dates.
+- Source links.
+- Evidence counts.
+- Property parser fix.

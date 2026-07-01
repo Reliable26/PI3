@@ -1,18 +1,5 @@
-# PI QE-001 Qualification Engine
+# PI v0.2.2c
 
-This release strengthens the qualification pipeline so only target-territory, business-relevant, recent commercial signals reach the dashboard.
+This release rolls back the unwanted format changes and tightens territory qualification.
 
-## Install
-Copy contents to repo root, commit, push, then run **Actions > Update Intelligence > Run workflow**.
-
-Commit message:
-
-`PI QE-001 Qualification Engine`
-
-## Verifies
-- Territory qualification
-- World/national syndicated rejection
-- Freshness filtering
-- Residential/excluded sector filtering
-- Evidence dates and source links
-- Qualification diagnostics
+Install by copying the contents into the repo root, replacing files, committing, pushing, then running GitHub Actions -> Update Intelligence.
