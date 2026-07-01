@@ -1,17 +1,30 @@
-# Architecture
+# Reliable Intel Architecture
 
-Reliable Intel uses a property-first intelligence pipeline.
+Reliable Intel is property-first. Public records, permits, incidents, ownership activity, and news are converted into signals and attached to Property Intelligence Records.
 
-Sources -> Normalize -> Qualify -> Resolve Property -> Create Signals -> Attach Evidence -> Score Property Opportunities -> Dashboard
+## Current Layers
 
-## Current certified connectors
-- Commercial Fire Intelligence via Google News RSS with strict territory filter.
-- Mecklenburg Building Permits via official ArcGIS FeatureServer.
-- Mecklenburg Parcels GIS via ArcGIS MapServer parcel lookup.
+1. Source Integration
+   - Fire/news signals
+   - Mecklenburg Building Permits
+   - Mecklenburg GIS parcel enrichment
 
-## Primary objects
-- Property Intelligence Record
-- Signal
-- Evidence
-- Organization
-- Opportunity
+2. Core Engine
+   - Qualification
+   - Property Resolver
+   - Organization Resolver
+   - Signal Engine
+   - Evidence Engine
+   - Opportunity Engine
+
+3. Intelligence Workspace
+   - Executive summary
+   - Today's Opportunities
+   - Property Intelligence Records
+   - Organization Resolver
+   - Source Health
+   - Intelligence QA
+
+## v0.9.3 Change
+
+The v0.9.3 build keeps the existing data pipeline unchanged and improves the workspace layer with sorting, filtering, search, heat indicators, chronological timeline ordering, and collapsed internal diagnostics.

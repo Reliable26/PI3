@@ -1,5 +1,5 @@
 {
-  "version": "0.9.1-property-resolver-gis-alpha",
+  "version": "0.9.2-pir-timeline-org-alpha",
   "territoryName": "Charlotte Metro",
   "emergencyMaxAgeHours": 72,
   "permitMaxAgeDays": 730,
@@ -33,12 +33,257 @@
       "resultRecordCount": 1000
     }
   ],
-  "targetCounties": ["Mecklenburg", "Cabarrus", "Gaston", "Union", "Iredell", "York", "Lancaster"],
-  "excludeTerms": ["single-family", "single family", "house fire", "home fire", "mobile home", "vehicle fire", "car fire", "brush fire", "woods fire", "grass fire", "dumpster fire", "trash fire", "shed fire", "garage fire"],
-  "targetGeoTerms": ["Charlotte NC", "Charlotte, NC", "Charlotte North Carolina", "Charlotte, North Carolina", "Mecklenburg County", "Mecklenburg County, NC", "Mecklenburg", "Cabarrus County", "Gaston County", "Union County, NC", "Iredell County", "York County, SC", "Lancaster County, SC", "Huntersville", "Matthews", "Pineville", "Cornelius", "Davidson", "Mint Hill", "University City", "Ballantyne", "SouthPark", "NoDa", "Plaza Midwood", "Uptown Charlotte", "east Charlotte", "west Charlotte", "north Charlotte", "south Charlotte", "southeast Charlotte", "southwest Charlotte", "northeast Charlotte", "northwest Charlotte"],
-  "foreignExcludeTerms": ["Belgium", "Brussels", "Antwerp", "Ghent", "France", "Germany", "United Kingdom", "UK", "London", "Canada", "Australia", "India", "Europe"],
-  "localSourceTerms": ["WCNC", "Charlotte Observer", "WSOC", "WBTV", "Queen City News", "Axios Charlotte", "WFAE", "Spectrum News", "Charlotte Fire", "City of Charlotte", "Mecklenburg", "QC News", "WCNC.com", "WBTV.com", "wsoctv", "QCity Metro"],
-  "sectionExcludeTerms": ["/world/", "/national/", "/international/", "/news/world", "/news/national", "world news", "national news", "international news", "associated press", "ap news"],
-  "permitCommercialTerms": ["commercial", "office", "retail", "warehouse", "industrial", "hotel", "motel", "apartment", "apartments", "multifamily", "multi-family", "tenant", "upfit", "shell", "buildout", "build-out", "restaurant", "medical", "clinic", "hospital", "school", "college", "university", "business", "shopping", "center", "plaza", "condo", "mixed use", "mixed-use"],
-  "permitTargetTerms": ["roof", "reroof", "re-roof", "tpo", "epdm", "membrane", "waterproof", "waterproofing", "building envelope", "envelope", "exterior", "facade", "façade", "siding", "stucco", "eifs", "window", "windows", "door", "doors", "commercial alteration", "alteration", "renovation", "upfit", "tenant improvement", "buildout", "build-out", "repair", "fire damage", "water damage", "smoke", "mold", "structural"]
+  "targetCounties": [
+    "Mecklenburg",
+    "Cabarrus",
+    "Gaston",
+    "Union",
+    "Iredell",
+    "York",
+    "Lancaster"
+  ],
+  "excludeTerms": [
+    "single-family",
+    "single family",
+    "house fire",
+    "home fire",
+    "mobile home",
+    "vehicle fire",
+    "car fire",
+    "brush fire",
+    "woods fire",
+    "grass fire",
+    "dumpster fire",
+    "trash fire",
+    "shed fire",
+    "garage fire"
+  ],
+  "targetGeoTerms": [
+    "Charlotte NC",
+    "Charlotte, NC",
+    "Charlotte North Carolina",
+    "Charlotte, North Carolina",
+    "Mecklenburg County",
+    "Mecklenburg County, NC",
+    "Mecklenburg",
+    "Cabarrus County",
+    "Gaston County",
+    "Union County, NC",
+    "Iredell County",
+    "York County, SC",
+    "Lancaster County, SC",
+    "Huntersville",
+    "Matthews",
+    "Pineville",
+    "Cornelius",
+    "Davidson",
+    "Mint Hill",
+    "University City",
+    "Ballantyne",
+    "SouthPark",
+    "NoDa",
+    "Plaza Midwood",
+    "Uptown Charlotte",
+    "east Charlotte",
+    "west Charlotte",
+    "north Charlotte",
+    "south Charlotte",
+    "southeast Charlotte",
+    "southwest Charlotte",
+    "northeast Charlotte",
+    "northwest Charlotte"
+  ],
+  "foreignExcludeTerms": [
+    "Belgium",
+    "Brussels",
+    "Antwerp",
+    "Ghent",
+    "France",
+    "Germany",
+    "United Kingdom",
+    "UK",
+    "London",
+    "Canada",
+    "Australia",
+    "India",
+    "Europe"
+  ],
+  "localSourceTerms": [
+    "WCNC",
+    "Charlotte Observer",
+    "WSOC",
+    "WBTV",
+    "Queen City News",
+    "Axios Charlotte",
+    "WFAE",
+    "Spectrum News",
+    "Charlotte Fire",
+    "City of Charlotte",
+    "Mecklenburg",
+    "QC News",
+    "WCNC.com",
+    "WBTV.com",
+    "wsoctv",
+    "QCity Metro"
+  ],
+  "sectionExcludeTerms": [
+    "/world/",
+    "/national/",
+    "/international/",
+    "/news/world",
+    "/news/national",
+    "world news",
+    "national news",
+    "international news",
+    "associated press",
+    "ap news"
+  ],
+  "permitCommercialTerms": [
+    "commercial",
+    "office",
+    "retail",
+    "warehouse",
+    "industrial",
+    "hotel",
+    "motel",
+    "apartment",
+    "apartments",
+    "multifamily",
+    "multi-family",
+    "tenant",
+    "upfit",
+    "shell",
+    "buildout",
+    "build-out",
+    "restaurant",
+    "medical",
+    "clinic",
+    "hospital",
+    "school",
+    "college",
+    "university",
+    "business",
+    "shopping",
+    "center",
+    "plaza",
+    "condo",
+    "mixed use",
+    "mixed-use"
+  ],
+  "permitTargetTerms": [
+    "roof",
+    "reroof",
+    "re-roof",
+    "tpo",
+    "epdm",
+    "membrane",
+    "waterproof",
+    "waterproofing",
+    "building envelope",
+    "envelope",
+    "exterior",
+    "facade",
+    "fa\u00e7ade",
+    "siding",
+    "stucco",
+    "eifs",
+    "window",
+    "windows",
+    "door",
+    "doors",
+    "commercial alteration",
+    "alteration",
+    "renovation",
+    "upfit",
+    "tenant improvement",
+    "buildout",
+    "build-out",
+    "repair",
+    "fire damage",
+    "water damage",
+    "smoke",
+    "mold",
+    "structural"
+  ],
+  "publicDataBaseUrl": "https://reliable26.github.io/PI3/data",
+  "organizationWatchlist": [
+    {
+      "canonical": "Bell Partners",
+      "aliases": [
+        "bell partners",
+        "bell partners inc",
+        "bell partners llc",
+        "bell partners lp"
+      ]
+    },
+    {
+      "canonical": "Knightvest",
+      "aliases": [
+        "knightvest",
+        "knightvest capital"
+      ]
+    },
+    {
+      "canonical": "MAA",
+      "aliases": [
+        "maa",
+        "mid-america apartment communities",
+        "mid america apartment communities"
+      ]
+    },
+    {
+      "canonical": "Asset Living",
+      "aliases": [
+        "asset living"
+      ]
+    },
+    {
+      "canonical": "Willow Bridge",
+      "aliases": [
+        "willow bridge",
+        "willow bridge property company"
+      ]
+    },
+    {
+      "canonical": "RPM Living",
+      "aliases": [
+        "rpm living"
+      ]
+    },
+    {
+      "canonical": "Lincoln Property Company",
+      "aliases": [
+        "lincoln property",
+        "lincoln property company"
+      ]
+    },
+    {
+      "canonical": "Cushman & Wakefield",
+      "aliases": [
+        "cushman wakefield",
+        "cushman & wakefield",
+        "c&w"
+      ]
+    },
+    {
+      "canonical": "Morgan Properties",
+      "aliases": [
+        "morgan properties"
+      ]
+    },
+    {
+      "canonical": "BH Management",
+      "aliases": [
+        "bh management",
+        "bh management services"
+      ]
+    },
+    {
+      "canonical": "Fogelman",
+      "aliases": [
+        "fogelman",
+        "fogelman properties"
+      ]
+    }
+  ]
 }

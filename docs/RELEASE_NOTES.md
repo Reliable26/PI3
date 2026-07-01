@@ -1,18 +1,31 @@
-# Reliable Intel v0.9.1 Alpha - Property Resolver / GIS Enrichment
+# Reliable Intel v0.9.3 Alpha Release Notes
+
+## Focus
+Improve formatting, ordering, filtering, and pilot usability without changing the underlying connector engine.
 
 ## Added
-- Mecklenburg parcel GIS lookup for permit clusters.
-- Property Resolution panel on opportunity cards.
-- GIS source and GIS query links for parcel verification.
-- GIS lookup metrics in dashboard summary.
-- Property Intelligence Records now preserve GIS resolution details when matched.
+- Executive intelligence header.
+- Left-side navigation shell.
+- Sort controls for Today's Opportunities.
+- Filters for category and minimum score.
+- Search across property, address, owner, contractor, parcel, permit, source, and services.
+- Opportunity rank numbering.
+- Heat-level visual indicator.
+- Relevant services strip on opportunity cards.
+- Chronological permit timeline sorted newest first.
+- Chronological property timeline sorted newest first.
+- Collapsed Source Health panel.
+- Collapsed Intelligence QA panel.
 
-## Kept
-- Existing dashboard layout.
-- Existing permit clustering.
-- Existing fire intelligence and strict territory filtering.
+## Preserved
+- Current GitHub Actions workflow.
+- Existing data files and connector output structure.
+- Fire filtering.
+- Mecklenburg permit connector.
+- Permit clustering.
+- GIS enrichment.
+- Property Intelligence Records.
+- Organization Resolver.
 
 ## Notes
-- GIS enrichment uses parcel IDs from the official Mecklenburg Building Permits feed.
-- If a permit record does not include a usable parcel ID, it remains address-clustered.
-- Ownership and management enrichment are still separate upcoming connectors.
+This release does not add new data sources. It improves how the existing intelligence is presented and navigated for pilot usage.

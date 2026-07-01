@@ -3,37 +3,112 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>PI</title>
+  <title>Reliable Intel</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-  <main class="shell">
-    <section class="hero">
-      <div>
-        <p class="eyebrow">Property Intelligence</p>
-        <h1>Today's Opportunities</h1>
+  <div class="app-shell">
+    <aside class="sidebar">
+      <div class="brand">
+        <div class="brand-mark">RI</div>
+        <div>
+          <strong>Reliable Intel</strong>
+          <span>Property Intelligence</span>
+        </div>
       </div>
-      <button id="refreshBtn">Update Intelligence</button>
-    </section>
+      <nav>
+        <a href="#top" class="active">Dashboard</a>
+        <a href="#opportunities">Today&apos;s Opportunities</a>
+        <a href="#properties">Properties</a>
+        <a href="#organizations">Organizations</a>
+        <a href="#sources">Sources</a>
+        <a href="#qa">QA</a>
+      </nav>
+    </aside>
 
-    <section class="metrics" id="metrics"></section>
+    <main class="main" id="top">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Commercial Property Intelligence</p>
+          <h1>Today&apos;s Commercial Intelligence</h1>
+          <p id="briefLine" class="brief-line">Loading latest intelligence...</p>
+        </div>
+        <button id="refreshBtn" type="button">Update Intelligence</button>
+      </header>
 
-    <section class="panel">
-      <div class="panel-head">
-        <h2>Source Health</h2>
-        <span id="lastUpdated">Not loaded</span>
-      </div>
-      <div id="sourceHealth" class="source-grid"></div>
-    </section>
+      <section class="metrics" id="metrics"></section>
 
-    <section class="panel">
-      <div class="panel-head">
-        <h2>Opportunity Feed</h2>
-        <span id="feedStatus"></span>
-      </div>
-      <div id="opportunities" class="cards"></div>
-    </section>
-  </main>
+      <section class="panel controls-panel" id="opportunity-section">
+        <div class="panel-head no-border">
+          <div>
+            <h2>Today&apos;s Opportunities</h2>
+            <span id="feedStatus">Loading</span>
+          </div>
+        </div>
+        <div class="controls">
+          <label>Search
+            <input id="searchInput" type="search" placeholder="Property, address, owner, contractor, parcel, permit" />
+          </label>
+          <label>Sort
+            <select id="sortSelect">
+              <option value="score">Opportunity Score</option>
+              <option value="newest">Newest Activity</option>
+              <option value="value">Total Permit Value</option>
+              <option value="signals">Most Signals</option>
+              <option value="property">Property Name</option>
+            </select>
+          </label>
+          <label>Category
+            <select id="categoryFilter">
+              <option value="all">All Categories</option>
+              <option value="Emergency">Emergency</option>
+              <option value="Capital Improvement">Capital Improvement</option>
+              <option value="Strategic">Strategic</option>
+            </select>
+          </label>
+          <label>Minimum Score
+            <select id="scoreFilter">
+              <option value="0">All Scores</option>
+              <option value="80">80+</option>
+              <option value="90">90+</option>
+              <option value="95">95+</option>
+            </select>
+          </label>
+        </div>
+        <div id="opportunities" class="cards"></div>
+      </section>
+
+      <section class="panel" id="properties-section">
+        <div class="panel-head">
+          <div>
+            <h2>Property Intelligence Records</h2>
+            <span>Resolved properties ranked by heat score and recent activity</span>
+          </div>
+        </div>
+        <div id="properties" class="property-grid"></div>
+      </section>
+
+      <section class="panel" id="organizations-section">
+        <div class="panel-head">
+          <div>
+            <h2>Organization Resolver</h2>
+            <span>Owners, applicants, contractors, and watch-list matches</span>
+          </div>
+        </div>
+        <div id="organizations" class="org-grid"></div>
+      </section>
+
+      <details class="panel collapsible" id="sources">
+        <summary><span>Source Health</span><small id="lastUpdated">Not loaded</small></summary>
+        <div id="sourceHealth" class="source-grid"></div>
+      </details>
+
+      <details class="panel collapsible" id="qa">
+        <summary><span>Intelligence QA</span><small>Internal diagnostics</small></summary>
+        <div id="qaMetrics" class="resolution-grid"></div>
+      </details>
+    </main>
+  </div>
   <script src="app.js"></script>
 </body>
 </html>

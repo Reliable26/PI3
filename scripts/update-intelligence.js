@@ -447,16 +447,42 @@ function buildPermitOpportunity(record) {
 function normalizeOrgName(name='') {
   const raw = String(name || '').trim();
   if (!raw) return '';
-  return raw
-    .replace(/\b(L\.L\.C\.|LLC|L\.P\.|LP|INC\.|INC|CORP\.|CORPORATION|COMPANY|CO\.)\b/ig, '')
+  const cleaned = raw
+    .replace(/\b(L\.L\.C\.|LLC|L\.P\.|LP|INC\.|INC|CORP\.|CORPORATION|COMPANY|CO\.|LIMITED|LTD\.)\b/ig, '')
     .replace(/\s+/g, ' ')
     .trim();
+  const low = normalizeText(cleaned);
+  for (const entry of settings.organizationWatchlist || []) {
+    if ((entry.aliases || []).some(alias => low === normalizeText(alias) || low.includes(normalizeText(alias)))) return entry.canonical;
+  }
+  return cleaned;
 }
 
 function organizationId(name='', type='Organization') {
   const normalized = normalizeOrgName(name);
   if (!normalized) return '';
   return `ORG-${hash(`${type}|${normalized}`).toUpperCase()}`;
+}
+
+function detectWatchlistOrganizations(text='') {
+  const low = normalizeText(text);
+  const found = [];
+  for (const entry of settings.organizationWatchlist || []) {
+    if ((entry.aliases || []).some(alias => low.includes(normalizeText(alias)))) found.push(entry.canonical);
+  }
+  return [...new Set(found)];
+}
+
+function addOrgToMap(map, name, type, propertyId='', evidenceCount=1) {
+  const normalized = normalizeOrgName(name);
+  if (!normalized) return;
+  const id = organizationId(normalized, type);
+  const existing = map.get(id) || { organizationId: id, name: normalized, type, roles: new Set(), propertyIds: new Set(), evidenceCount: 0, watchList: false };
+  existing.roles.add(type);
+  if (propertyId) existing.propertyIds.add(propertyId);
+  existing.evidenceCount += evidenceCount;
+  existing.watchList = existing.watchList || (settings.organizationWatchlist || []).some(x => x.canonical === normalized);
+  map.set(id, existing);
 }
 
 function parcelPropertyId(parcel='', address='') {
@@ -514,7 +540,17 @@ function buildPermitPropertyRecord(opportunity) {
   const address = c.address || opportunity.propertyName || '';
   const ownerName = c.owner || '';
   const propertyId = parcelPropertyId(c.parcelId, address);
-  const propertyType = inferPropertyTypeFromPermit((c.permits || [])[0] || opportunity.permit || {});
+  const samplePermit = (c.permits || [])[0] || opportunity.permit || {};
+  const propertyType = inferPropertyTypeFromPermit(samplePermit);
+  const managers = detectWatchlistOrganizations([address, opportunity.propertyName, opportunity.whatChanged, opportunity.whyThisMatters, JSON.stringify(c)].join(' '));
+  const timeline = (c.permits || []).map(p => ({
+    date: p.issuedDate,
+    type: 'Permit',
+    label: p.category || 'Permit',
+    description: p.description || p.caseNumber || '',
+    source: 'Mecklenburg Building Permits',
+    url: p.permitDetailUrl || ''
+  }));
   return {
     propertyId,
     parcelId: c.parcelId || '',
@@ -524,16 +560,25 @@ function buildPermitPropertyRecord(opportunity) {
     territory: opportunity.territory || settings.territoryName,
     propertyType,
     owner: ownerName ? { organizationId: organizationId(ownerName, 'Owner'), name: normalizeOrgName(ownerName), confidence: 0.88, source: 'Permit record' } : null,
-    management: null,
+    management: managers.length ? { organizationId: organizationId(managers[0], 'Management Company'), name: managers[0], confidence: 0.7, source: 'Text match' } : null,
     gis: opportunity.propertyResolution || null,
     currentHeatScore: opportunity.ratings?.overall || 0,
     latestSignal: opportunity.category,
     latestSignalDate: opportunity.eventDate,
     evidenceCount: opportunity.evidenceCount || 0,
+    signals: ['PERMIT'],
+    timelines: timeline,
     permitSummary: {
       permitCount: c.permitCount || 0,
       totalCost: c.totalCost || 0,
       categories: c.categories || []
+    },
+    dataQuality: {
+      identity: c.parcelId ? 92 : 72,
+      ownership: ownerName ? 80 : 25,
+      management: managers.length ? 70 : 10,
+      evidence: Math.min(100, (opportunity.evidenceCount || 0) * 25),
+      overall: Math.round(((c.parcelId ? 92 : 72) + (ownerName ? 80 : 25) + (managers.length ? 70 : 10) + Math.min(100, (opportunity.evidenceCount || 0) * 25)) / 4)
     },
     updatedAt: nowIso()
   };
@@ -541,6 +586,7 @@ function buildPermitPropertyRecord(opportunity) {
 
 function buildFirePropertyRecord(opportunity) {
   const propertyId = opportunity.propertyId || `PIR-${hash(opportunity.propertyName || opportunity.id).toUpperCase()}`;
+  const managers = detectWatchlistOrganizations([opportunity.propertyName, opportunity.whatChanged, opportunity.whyThisMatters].join(' '));
   return {
     propertyId,
     parcelId: '',
@@ -550,46 +596,70 @@ function buildFirePropertyRecord(opportunity) {
     territory: opportunity.territory || settings.territoryName,
     propertyType: opportunity.category === 'Multifamily Fire' ? 'Multifamily' : 'Commercial / Needs Classification',
     owner: null,
-    management: null,
+    management: managers.length ? { organizationId: organizationId(managers[0], 'Management Company'), name: managers[0], confidence: 0.7, source: 'Text match' } : null,
     currentHeatScore: opportunity.ratings?.overall || 0,
     latestSignal: opportunity.category,
     latestSignalDate: opportunity.eventDate,
     evidenceCount: opportunity.evidenceCount || 0,
+    signals: ['FIRE'],
+    timelines: [{ date: opportunity.eventDate, type: 'Fire', label: opportunity.category, description: opportunity.whatChanged, source: opportunity.sources?.[0]?.name || 'Public Source', url: opportunity.sources?.[0]?.url || '' }],
+    dataQuality: { identity: opportunity.propertyName === 'Property Requires Verification' ? 30 : 60, ownership: 0, management: managers.length ? 70 : 0, evidence: Math.min(100, (opportunity.evidenceCount || 0) * 25), overall: opportunity.propertyName === 'Property Requires Verification' ? 25 : 45 },
+    updatedAt: nowIso()
+  };
+}
+
+function mergeTimeline(a = [], b = []) {
+  const map = new Map();
+  for (const item of [...a, ...b]) {
+    const key = `${item.date || ''}|${item.type || ''}|${item.label || ''}`;
+    if (!map.has(key)) map.set(key, item);
+  }
+  return [...map.values()].sort((x,y) => new Date(y.date || 0) - new Date(x.date || 0));
+}
+
+function mergePropertyRecords(existing, incoming) {
+  if (!existing) return incoming;
+  return {
+    ...existing,
+    ...Object.fromEntries(Object.entries(incoming).filter(([_,v]) => v !== null && v !== undefined && v !== '' && !(Array.isArray(v) && v.length === 0))),
+    propertyId: existing.propertyId,
+    parcelId: existing.parcelId || incoming.parcelId || '',
+    propertyName: existing.propertyName && existing.propertyName !== existing.address ? existing.propertyName : (incoming.propertyName || existing.propertyName),
+    owner: existing.owner || incoming.owner || null,
+    management: existing.management || incoming.management || null,
+    currentHeatScore: Math.max(existing.currentHeatScore || 0, incoming.currentHeatScore || 0),
+    evidenceCount: (existing.evidenceCount || 0) + (incoming.evidenceCount || 0),
+    timelines: mergeTimeline(existing.timelines || [], incoming.timelines || []),
+    signals: [...new Set([...(existing.signals || []), ...(incoming.signals || [])])],
     updatedAt: nowIso()
   };
 }
 
 function dedupeProperties(records) {
   const map = new Map();
-  for (const rec of records) {
-    const existing = map.get(rec.propertyId);
-    if (!existing || (rec.evidenceCount || 0) > (existing.evidenceCount || 0) || (rec.currentHeatScore || 0) > (existing.currentHeatScore || 0)) map.set(rec.propertyId, rec);
-  }
+  for (const rec of records) map.set(rec.propertyId, mergePropertyRecords(map.get(rec.propertyId), rec));
   return [...map.values()].sort((a,b) => (b.currentHeatScore || 0) - (a.currentHeatScore || 0));
 }
 
 function collectOrganizationsFromOpportunities(opportunities) {
   const map = new Map();
   for (const o of opportunities) {
+    const propertyId = o.propertyId || '';
+    const text = [o.propertyName, o.whatChanged, o.whyThisMatters, JSON.stringify(o.permitCluster || {})].join(' ');
+    for (const manager of detectWatchlistOrganizations(text)) addOrgToMap(map, manager, 'Management Company', propertyId, 1);
     const c = o.permitCluster;
-    if (!c) continue;
-    const add = (name, type) => {
-      const normalized = normalizeOrgName(name);
-      if (!normalized) return;
-      const id = organizationId(normalized, type);
-      const existing = map.get(id) || { organizationId: id, name: normalized, type, roles: new Set(), propertyIds: new Set(), evidenceCount: 0 };
-      existing.roles.add(type);
-      existing.propertyIds.add(o.propertyId);
-      existing.evidenceCount += 1;
-      map.set(id, existing);
-    };
-    add(c.owner, 'Owner');
-    for (const p of c.permits || []) {
-      add(p.contractor, 'Contractor');
-      add(p.applicant, 'Applicant');
+    if (c) {
+      addOrgToMap(map, c.owner, 'Owner', propertyId, 1);
+      for (const p of c.permits || []) {
+        addOrgToMap(map, p.contractor, 'Contractor', propertyId, 1);
+        addOrgToMap(map, p.applicant, 'Applicant', propertyId, 1);
+        addOrgToMap(map, p.owner, 'Owner', propertyId, 1);
+      }
     }
   }
-  return [...map.values()].map(x => ({ ...x, roles: [...x.roles], propertyIds: [...x.propertyIds] }));
+  return [...map.values()]
+    .map(x => ({ ...x, roles: [...x.roles], propertyIds: [...x.propertyIds] }))
+    .sort((a,b) => (b.watchList - a.watchList) || b.evidenceCount - a.evidenceCount || a.name.localeCompare(b.name));
 }
 
 function buildPermitClusterOpportunity(cluster) {
