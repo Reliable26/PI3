@@ -76,6 +76,7 @@ async function loadData() {
       metric('Opportunities', s.opportunities ?? 0),
       metric('Candidates', s.candidates ?? 0),
       metric('Old Items Excluded', s.oldItemsExcluded ?? 0),
+      metric('Out of Territory Excluded', s.outOfTerritoryExcluded ?? 0),
       metric('Duplicates Merged', s.duplicateGroupsMerged ?? 0),
       metric('Residential / Noise Excluded', s.nonCommercialExcluded ?? 0)
     ].join('');

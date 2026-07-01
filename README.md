@@ -1,12 +1,13 @@
 # PI - Property Intelligence
 
-Developer Preview v0.2.2.
+Developer Preview v0.2.2b.
 
-## Purpose
-Validate that PI can retrieve recent live public fire/commercial signals, filter stale items, preserve source links, display publication dates, and group opportunities by property signal.
+This build validates live Google News RSS ingestion for recent Charlotte Metro commercial-fire signals and adds stricter territory filtering so international/out-of-market fire stories are excluded before opportunity creation.
 
 ## Install
-Copy all files into the repository root, commit, push, then run **Actions > Update Intelligence**.
+
+Copy all files to the root of the GitHub repository, commit, push, then run **Actions -> Update Intelligence -> Run workflow**.
 
 ## Commit message
-PI v0.2.2 Property Resolution and Recency Filtering
+
+`PI v0.2.2b territory filter`

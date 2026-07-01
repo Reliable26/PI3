@@ -1,19 +1,15 @@
-# PI v0.2.2 Release Notes
+# Release Notes
 
-## Added
-- 72-hour emergency article recency filter.
-- Published date display on every opportunity card.
-- PI detected date display.
-- Source health counts for stale items excluded.
-- Duplicate grouping by property/category/date.
-- First Property Intelligence Record IDs.
-- Source evidence section with clickable links.
+## v0.2.2b - Territory Filter
 
-## Improved
-- Commercial fire classification.
-- Residential/noise filtering.
-- Score breakdown transparency.
+### Fixed
+- Excludes out-of-market articles such as international fire stories that Google News may return.
+- Adds target geography filtering for Charlotte Metro / Mecklenburg terms and trusted local sources.
+- Adds an `Out of Territory Excluded` metric to the dashboard.
 
-## Known Limitations
-- Property address/owner/management verification is not yet connected to county records.
-- Google News is used as the current validated public feed. Official fire/permit data integrations remain future modules.
+### Kept
+- 72-hour emergency recency filter.
+- Article published date.
+- PI detected date.
+- Clickable source links.
+- Property-name parser fix.

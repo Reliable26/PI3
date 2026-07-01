@@ -40,6 +40,24 @@ function extractSourceFromTitle(title='') {
   return parts.length > 1 ? parts[parts.length - 1].trim() : 'Google News';
 }
 
+function normalizeText(value='') {
+  return String(value).toLowerCase().replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function isLocalTrustedSource(source='') {
+  const src = normalizeText(source);
+  return (settings.localSourceTerms || []).some(term => src.includes(normalizeText(term)));
+}
+
+function isInsideTargetTerritory(item) {
+  const text = normalizeText(`${item.title || ''} ${item.description || ''} ${item.source || ''}`);
+  if ((settings.foreignExcludeTerms || []).some(term => text.includes(normalizeText(term)))) return false;
+  if ((settings.targetGeoTerms || []).some(term => text.includes(normalizeText(term)))) return true;
+  // Google News queries may include Charlotte, but if the article itself does not contain a local place/source signal,
+  // PI should not treat it as a Charlotte Metro opportunity.
+  return isLocalTrustedSource(item.source || extractSourceFromTitle(item.title || ''));
+}
+
 function cleanTitle(title='') {
   return title.replace(/\s+-\s+[^-]+$/,'').replace(/\s+/g,' ').trim();
 }
@@ -219,7 +237,7 @@ async function main() {
   const seenLinks = new Set();
   const candidates = [];
   const now = new Date();
-  let oldExcluded = 0, nonCommercialExcluded = 0, duplicateRawExcluded = 0;
+  let oldExcluded = 0, nonCommercialExcluded = 0, duplicateRawExcluded = 0, outOfTerritoryExcluded = 0;
   for (const item of raw) {
     if (!item.link || seenLinks.has(item.link)) { duplicateRawExcluded++; continue; }
     seenLinks.add(item.link);
@@ -227,6 +245,7 @@ async function main() {
     if (!pub || Number.isNaN(pub.getTime())) { oldExcluded++; continue; }
     const ageHours = hoursBetween(pub, now);
     if (ageHours > settings.emergencyMaxAgeHours) { oldExcluded++; continue; }
+    if (!isInsideTargetTerritory(item)) { outOfTerritoryExcluded++; continue; }
     const cls = classifyFire(item.title, item.description);
     if (!cls.keep) { nonCommercialExcluded++; continue; }
     const propertyName = extractPropertyName(item.title, item.description);
@@ -273,6 +292,7 @@ async function main() {
       properties: properties.length,
       oldItemsExcluded: oldExcluded,
       nonCommercialExcluded,
+      outOfTerritoryExcluded,
       duplicateRawExcluded,
       duplicateGroupsMerged: candidates.length - opportunities.length
     },
@@ -285,9 +305,9 @@ async function main() {
   fs.writeFileSync(path.join(dataDir, 'opportunities.json'), JSON.stringify(output, null, 2));
   fs.writeFileSync(path.join(dataDir, 'properties.json'), JSON.stringify({ generatedAt: output.generatedAt, properties }, null, 2));
   fs.writeFileSync(path.join(dataDir, 'source-health.json'), JSON.stringify({ generatedAt: output.generatedAt, health, summary: output.summary }, null, 2));
-  console.log(`PI update complete. Opportunities: ${opportunities.length}. Old excluded: ${oldExcluded}. Non-commercial excluded: ${nonCommercialExcluded}.`);
+  console.log(`PI update complete. Opportunities: ${opportunities.length}. Old excluded: ${oldExcluded}. Out-of-territory excluded: ${outOfTerritoryExcluded}. Non-commercial excluded: ${nonCommercialExcluded}.`);
 }
 
 if (require.main === module) main().catch(err => { console.error(err); process.exit(1); });
 
-module.exports = { parseRss, classifyFire, extractPropertyName, buildOpportunity };
+module.exports = { parseRss, classifyFire, extractPropertyName, isInsideTargetTerritory, buildOpportunity };
