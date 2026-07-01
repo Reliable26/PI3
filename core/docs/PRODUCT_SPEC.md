@@ -1,0 +1,23 @@
+# Reliable Intel Product Specification
+
+## Mission
+Identify commercial properties that are changing before competitors do using verified public information.
+
+## Primary Object
+The Property Intelligence Record is the primary object. Permits, fires, ownership changes, planning activity, news, contractors, and evidence attach to a property.
+
+## Not a CRM
+Reliable Intel does not manage contacts, tasks, notes, opportunities, estimates, or projects. It identifies and explains prospecting intelligence.
+
+## Minimum Opportunity Standard
+Every opportunity must include public evidence, a date, a source link, a property or address, a score, and a reason it appears.
+
+## Current Pilot Sources
+- Mecklenburg Building Permits Official GIS
+- Google News RSS for fire/emergency monitoring
+
+## Future Certified Sources
+- Mecklenburg GIS / parcel data
+- Mecklenburg Register of Deeds
+- Charlotte planning / rezoning
+- Management company official announcements

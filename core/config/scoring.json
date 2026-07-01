@@ -1,0 +1,21 @@
+{
+  "base": {
+    "Multifamily Fire": 40,
+    "Hotel Fire": 38,
+    "Industrial Fire": 36,
+    "Office Fire": 34,
+    "Retail Fire": 32,
+    "Healthcare Fire": 40,
+    "Education Fire": 35,
+    "Commercial Structure Fire": 35,
+    "Needs Verification": 20
+  },
+  "bonuses": {
+    "freshWithin24Hours": 15,
+    "freshWithin72Hours": 10,
+    "multipleSources": 10,
+    "resolvedPropertyName": 8,
+    "sourceLink": 5,
+    "articleDate": 5
+  }
+}
