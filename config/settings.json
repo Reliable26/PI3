@@ -1,5 +1,5 @@
 {
-  "version": "0.2.4a-perm001-accela",
+  "version": "0.2.4b-perm001-certified-meck-buildingpermits",
   "territoryName": "Charlotte Metro",
   "emergencyMaxAgeHours": 72,
   "permitMaxAgeDays": 730,
@@ -15,10 +15,10 @@
   "permitSources": [
     {
       "id": "meck-building-permits-arcgis",
-      "name": "Mecklenburg Building Permits ArcGIS",
+      "name": "Mecklenburg Building Permits Official GIS",
       "type": "arcgis-feature-layer",
-      "url": "https://meckgis.mecklenburgcountync.gov/server/rest/services/BuildingPermits_Accela/FeatureServer/0/query",
-      "sourceUrl": "https://meckgis.mecklenburgcountync.gov/server/rest/services/BuildingPermits_Accela/FeatureServer/0",
+      "url": "https://meckgis.mecklenburgcountync.gov/server/rest/services/BuildingPermits/FeatureServer/0/query",
+      "sourceUrl": "https://meckgis.mecklenburgcountync.gov/server/rest/services/BuildingPermits/FeatureServer/0",
       "enabled": true,
       "resultRecordCount": 1000
     }

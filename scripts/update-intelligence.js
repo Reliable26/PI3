@@ -254,10 +254,10 @@ function esriDateToIso(value) {
 
 function buildArcGisQueryUrl(source) {
   const params = new URLSearchParams({
-    where: '1=1',
-    outFields: 'CaseNumber,Descriptio,IssuedDate,Expiration,Address,BLOCKLOT,ExistingUs,ProposedUs,Cost,Neighborho',
+    where: 'issuedate IS NOT NULL',
+    outFields: 'permitnum,permitdesc,permitstat,permittype,projname,projnum,projdesc,projphase,projadd,zipcode,parcelnum,taxjuris,zonecode,typeofbldg,numunits,usdcdesc,issuedate,bldgcost,constrtype,occupancy,prmtfeetype,worktype,workdesc,totalsqft,ownname',
     returnGeometry: 'false',
-    orderByFields: 'issue_date DESC',
+    orderByFields: 'issuedate DESC',
     resultRecordCount: String(source.resultRecordCount || 500),
     f: 'json'
   });
@@ -285,13 +285,13 @@ function firstValue(attrs, names) {
 
 function permitText(attrs) {
   return [
-    firstValue(attrs, ['description_of_work','description','Descriptio']),
-    firstValue(attrs, ['project_name']),
-    firstValue(attrs, ['permit_type','type_of_work']),
-    firstValue(attrs, ['occupancy_code','usdc_code_and_description','construction_type']),
+    firstValue(attrs, ['workdesc','permitdesc','projdesc','description_of_work','description','Descriptio']),
+    firstValue(attrs, ['projname','project_name']),
+    firstValue(attrs, ['worktype','permittype','permit_type','type_of_work']),
+    firstValue(attrs, ['occupancy','usdcdesc','constrtype','occupancy_code','usdc_code_and_description','construction_type']),
     firstValue(attrs, ['ProposedUs']),
     firstValue(attrs, ['ExistingUs']),
-    firstValue(attrs, ['project_address','Address'])
+    firstValue(attrs, ['projadd','project_address','Address'])
   ].join(' ');
 }
 
@@ -332,13 +332,13 @@ function parseMoney(value) {
 
 function normalizePermitFeature(feature, source) {
   const attrs = feature.attributes || {};
-  const issuedIso = esriDateToIso(firstValue(attrs, ['issue_date','IssuedDate']));
+  const issuedIso = esriDateToIso(firstValue(attrs, ['issuedate','issue_date','IssuedDate']));
   const classification = classifyPermit(attrs);
-  const address = String(firstValue(attrs, ['project_address','Address'])).trim();
-  const desc = String(firstValue(attrs, ['description_of_work','description','Descriptio'])).trim();
-  const cost = parseMoney(firstValue(attrs, ['building_construction_cost_customer','building_construction_cost_system','Cost']));
-  const permitNumber = firstValue(attrs, ['permit_number','CaseNumber']);
-  const parcel = firstValue(attrs, ['cama_parcel_number','matparcelnum','BLOCKLOT']);
+  const address = String(firstValue(attrs, ['projadd','project_address','Address'])).trim();
+  const desc = String(firstValue(attrs, ['workdesc','permitdesc','projdesc','description_of_work','description','Descriptio'])).trim();
+  const cost = parseMoney(firstValue(attrs, ['bldgcost','building_construction_cost_customer','building_construction_cost_system','Cost']));
+  const permitNumber = firstValue(attrs, ['permitnum','permit_number','CaseNumber']);
+  const parcel = firstValue(attrs, ['parcelnum','cama_parcel_number','matparcelnum','BLOCKLOT']);
   return {
     module: 'Permit Intelligence',
     title: `${classification.category}: ${address || permitNumber || 'Mecklenburg permit'}`,
@@ -353,11 +353,11 @@ function normalizePermitFeature(feature, source) {
     address,
     caseNumber: permitNumber || '',
     parcelId: parcel || '',
-    existingUse: firstValue(attrs, ['ExistingUs','occupancy_code','usdc_code_and_description']),
-    proposedUse: firstValue(attrs, ['ProposedUs','permit_type','type_of_work']),
+    existingUse: firstValue(attrs, ['ExistingUs','occupancy','usdcdesc','occupancy_code','usdc_code_and_description']),
+    proposedUse: firstValue(attrs, ['ProposedUs','permittype','worktype','permit_type','type_of_work']),
     cost,
-    neighborhood: firstValue(attrs, ['Neighborho','tax_jurisdiction']),
-    propertyName: address || firstValue(attrs, ['project_name']) || 'Property Requires Verification',
+    neighborhood: firstValue(attrs, ['taxjuris','Neighborho','tax_jurisdiction']),
+    propertyName: firstValue(attrs, ['projname','project_name']) || address || 'Property Requires Verification',
     opportunityClass: 'Capital Improvement',
     raw: attrs
   };
