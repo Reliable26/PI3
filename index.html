@@ -29,8 +29,8 @@
       </div>
       <div class="side-card muted-card">
         <span>Build</span>
-        <strong>v0.9.5 Alpha</strong>
-        <small>Master/detail + permit source registry</small>
+        <strong>v0.9.6 Alpha</strong>
+        <small>Master/detail UX + functional record tabs</small>
       </div>
     </aside>
 
@@ -94,37 +94,35 @@
       </section>
 
       <section class="content-grid">
-        <div class="left-column">
-          <section class="panel opportunities-panel">
-            <div class="panel-title">
-              <div>
-                <h2>Today's Top Properties</h2>
-                <p id="feedStatus">Ranked by opportunity score</p>
-              </div>
+        <section class="panel opportunities-panel">
+          <div class="panel-title">
+            <div>
+              <h2>Today's Top Properties</h2>
+              <p id="feedStatus">Ranked by opportunity score</p>
             </div>
-            <div id="opportunities" class="property-list"></div>
-          </section>
-
-          <section class="panel map-panel" id="map">
-            <div class="panel-title">
-              <div>
-                <h2>Property Map</h2>
-                <p>Live overview of today's properties</p>
-              </div>
-            </div>
-            <div class="map-canvas" id="mapCanvas"></div>
-            <div class="map-legend">
-              <span><i class="dot high"></i> High</span>
-              <span><i class="dot medium"></i> Medium</span>
-              <span><i class="dot low"></i> Low</span>
-              <span><i class="pin"></i> Updated Today</span>
-            </div>
-          </section>
-        </div>
+          </div>
+          <div id="opportunities" class="property-list"></div>
+        </section>
 
         <aside class="detail-panel" id="propertyDetail">
           <div class="empty-detail">Select a property to view its Property Intelligence Record.</div>
         </aside>
+      </section>
+
+      <section class="panel map-panel" id="map">
+        <div class="panel-title">
+          <div>
+            <h2>Property Map</h2>
+            <p>Live overview of today's properties</p>
+          </div>
+        </div>
+        <div class="map-canvas" id="mapCanvas"></div>
+        <div class="map-legend">
+          <span><i class="dot high"></i> High</span>
+          <span><i class="dot medium"></i> Medium</span>
+          <span><i class="dot low"></i> Low</span>
+          <span><i class="pin"></i> Updated Today</span>
+        </div>
       </section>
 
       <section class="panel" id="properties-section">

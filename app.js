@@ -1,4 +1,4 @@
-const state = { data: null, opportunities: [], selectedId: null };
+const state = { data: null, opportunities: [], selectedId: null, selectedTab: 'overview' };
 
 const esc = (value='') => String(value ?? '').replace(/[&<>'\"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','\"':'&quot;'}[c]));
 const fmtDateTime = (value) => {
@@ -151,46 +151,91 @@ function permitTimeline(o) {
 function timelineItemsForOpportunity(o) {
   return `<li><time>${fmtDateTime(o.eventDate || o.publishedDate)}</time><div><strong>${esc(o.category || 'Signal')}</strong><span>${esc(o.whatChanged || '')}</span>${(o.sources || [])[0]?.url ? `<div class="mini-links"><a href="${esc(o.sources[0].url)}" target="_blank" rel="noopener">View Evidence</a></div>` : ''}</div></li>`;
 }
+function detailTabButton(tab, label) {
+  const active = state.selectedTab === tab ? ' active' : '';
+  return `<button type="button" class="tab-btn${active}" data-tab="${tab}">${label}</button>`;
+}
+function renderOverviewTab(o, p, score, intelligenceScore) {
+  return `<section class="pir-section"><h3>What Changed</h3><p>${esc(opportunityLead(o))}</p></section>
+    <section class="pir-section"><h3>Why This Matters</h3><p>${esc(o.whyThisMatters || '')}</p></section>
+    <section class="pir-kpis compact-kpis">
+      <div><span>Latest Activity</span><strong>${fmtDateTime(latestActivityDate(o))}</strong><small>${relativeAge(latestActivityDate(o))}</small></div>
+      <div><span>Sources</span><strong>${o.evidenceCount || 0}</strong><small>Verified</small></div>
+      <div><span>Listed Permit Value</span><strong>${compactMoney(o.permitCluster?.totalCost || 0)}</strong><small>${o.permitCluster ? 'Permit cluster' : 'Not listed'}</small></div>
+    </section>
+    <section class="pir-section"><h3>Relevant Services</h3>${servicesStrip(o, 10)}</section>
+    <section class="pir-section"><h3>Opportunity Indicators</h3>${scoreBreakdown(o)}</section>
+    <section class="pir-section"><h3>Verified By</h3><div class="verified-list">${verifiedBy(o).map(v => `<span>✓ ${esc(v)}</span>`).join('') || '<span>Verification pending</span>'}</div></section>`;
+}
+function renderTimelineTab(o) {
+  return `<section class="pir-section"><h3>Timeline <small>Newest first</small></h3><ul class="detail-timeline">${permitTimeline(o)}</ul></section>`;
+}
+function renderDetailsTab(o, p) {
+  const rows = [
+    ['Property', o.propertyName || p.propertyName || 'Pending'],
+    ['Address', p.address || o.propertyResolution?.address || 'Pending'],
+    ['County / Territory', p.county || o.county || o.territory || 'Pending'],
+    ['Property Type', p.propertyType || 'Needs Classification'],
+    ['Parcel', p.parcelId || o.propertyResolution?.parcelId || 'Pending'],
+    ['Owner', p.owner?.name || o.permitCluster?.owner || 'Pending'],
+    ['Management', p.management?.name || 'Pending'],
+    ['Permit Count', o.permitCluster?.permitCount || p.permitSummary?.permitCount || 0],
+    ['Listed Permit Value', compactMoney(o.permitCluster?.totalCost || p.permitSummary?.totalCost || 0)]
+  ];
+  return `<section class="pir-section"><h3>Property Details</h3><div class="detail-table">${rows.map(([k,v]) => `<div><span>${esc(k)}</span><strong>${esc(v)}</strong></div>`).join('')}</div></section>`;
+}
+function renderEvidenceTab(o) {
+  return `<section class="pir-section"><h3>Evidence</h3>${evidenceLinks(o)}</section>`;
+}
+function renderMapTab(o, p) {
+  return `<section class="pir-section"><h3>Map Context</h3><p>${esc(p.address || o.propertyName || 'Selected property')} is highlighted on the Property Map below. Click another map marker or property row to update this record.</p></section>`;
+}
+function renderDetailBody(o, p, score, intelligenceScore) {
+  if (state.selectedTab === 'timeline') return renderTimelineTab(o);
+  if (state.selectedTab === 'details') return renderDetailsTab(o, p);
+  if (state.selectedTab === 'map') return renderMapTab(o, p);
+  if (state.selectedTab === 'evidence') return renderEvidenceTab(o);
+  return renderOverviewTab(o, p, score, intelligenceScore);
+}
 function renderDetail(o) {
   if (!o) return '<div class="empty-detail">Select a property to view its Property Intelligence Record.</div>';
   const p = findProperty(o.propertyId) || {};
   const score = o.ratings?.overall ?? 0;
   const intelligenceScore = p.dataQuality?.overall || o.ratings?.confidence || 0;
   return `<div class="detail-head">
-      <button type="button" class="close-detail" aria-label="Close">×</button>
       <div><h2>${esc(o.propertyName || 'Property Requires Verification')}</h2><p>${esc(p.address || o.county || '')}</p><small>${[p.propertyType, p.permitSummary?.permitCount ? `${p.permitSummary.permitCount} permits` : '', p.parcelId ? `Parcel ${p.parcelId}` : ''].filter(Boolean).join(' • ')}</small></div>
       <div class="detail-scores">${scoreBox('Opportunity Score', score, 'opportunity')}${scoreBox('Intelligence Score', intelligenceScore, 'intel')}</div>
     </div>
-    <div class="tab-row"><span class="active">Overview</span><span>Timeline</span><span>Details</span><span>Map</span><span>Evidence</span></div>
-    <section class="pir-section"><h3>What Changed</h3><p>${esc(opportunityLead(o))}</p></section>
-    <section class="pir-section"><h3>Why This Matters</h3><p>${esc(o.whyThisMatters || '')}</p></section>
-    <section class="pir-kpis">
-      <div><span>Latest Activity</span><strong>${fmtDateTime(latestActivityDate(o))}</strong><small>${relativeAge(latestActivityDate(o))}</small></div>
-      <div><span>Sources</span><strong>${o.evidenceCount || 0}</strong><small>Verified</small></div>
-      <div><span>Listed Permit Value</span><strong>${compactMoney(o.permitCluster?.totalCost || 0)}</strong><small>${o.permitCluster ? 'Permit cluster' : 'Not listed'}</small></div>
-    </section>
-    <section class="pir-section"><h3>Relevant Services</h3>${servicesStrip(o, 10)}</section>
-    <section class="pir-section"><h3>Opportunity Drivers</h3>${scoreBreakdown(o)}</section>
-    <section class="pir-section"><h3>Verified By</h3><div class="verified-list">${verifiedBy(o).map(v => `<span>✓ ${esc(v)}</span>`).join('') || '<span>Verification pending</span>'}</div></section>
-    <section class="pir-section"><h3>Timeline <small>Newest first</small></h3><ul class="detail-timeline">${permitTimeline(o)}</ul></section>
-    <section class="pir-actions">
-      ${o.sources?.[0]?.url ? `<a href="${esc(o.sources[0].url)}" target="_blank" rel="noopener">View County Source Record</a>` : ''}
-      ${o.permitCluster?.permits?.[0]?.officialSearchUrl ? `<a href="${esc(o.permitCluster.permits[0].officialSearchUrl)}" target="_blank" rel="noopener">${esc(o.permitCluster.permits[0].officialSearchLabel || 'Open Permit Search')}</a>` : ''}
-    </section>
-    <details class="evidence-details"><summary>All Evidence</summary>${evidenceLinks(o)}</details>`;
+    <div class="tab-row" role="tablist">
+      ${detailTabButton('overview', 'Overview')}
+      ${detailTabButton('timeline', 'Timeline')}
+      ${detailTabButton('details', 'Details')}
+      ${detailTabButton('map', 'Map')}
+      ${detailTabButton('evidence', 'Evidence')}
+    </div>
+    <div class="detail-body">${renderDetailBody(o, p, score, intelligenceScore)}</div>`;
 }
 function selectOpportunity(id, updateList=true) {
   const o = state.opportunities.find(x => x.id === id) || filteredSortedOpportunities()[0];
   if (!o) return;
+  const isNewSelection = state.selectedId !== o.id;
   state.selectedId = o.id;
+  if (isNewSelection && !['overview','timeline','details','map','evidence'].includes(state.selectedTab)) state.selectedTab = 'overview';
   document.getElementById('propertyDetail').innerHTML = renderDetail(o);
-  document.querySelector('.close-detail')?.addEventListener('click', () => document.getElementById('propertyDetail').innerHTML = '<div class="empty-detail">Select a property to view its Property Intelligence Record.</div>');
+  document.querySelectorAll('.tab-btn').forEach(btn => btn.addEventListener('click', () => {
+    state.selectedTab = btn.dataset.tab || 'overview';
+    document.getElementById('propertyDetail').innerHTML = renderDetail(o);
+    wireDetailInteractions(o);
+  }));
+  wireDetailInteractions(o);
+  if (updateList) renderOpportunities();
+}
+function wireDetailInteractions(o) {
   document.querySelectorAll('.copy-btn').forEach(btn => btn.addEventListener('click', async () => {
     const value = btn.dataset.copy || '';
     try { await navigator.clipboard.writeText(value); btn.textContent = 'Copied'; setTimeout(() => btn.textContent = 'Copy Permit #', 1200); }
     catch { btn.textContent = value; }
   }));
-  if (updateList) renderOpportunities();
 }
 function renderMap(items) {
   const container = document.getElementById('mapCanvas');

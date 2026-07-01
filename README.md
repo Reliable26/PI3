@@ -1,4 +1,4 @@
-# Commercial Property Intelligence v0.9.5 Alpha
+# Commercial Property Intelligence v0.9.6 Alpha
 
 Pilot workflow build focused on master/detail layout behavior and source-aware permit evidence links.
 

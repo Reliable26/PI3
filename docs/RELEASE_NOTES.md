@@ -1,4 +1,4 @@
-# v0.9.5 Alpha - Pilot Workflow and Permit Evidence Links
+# v0.9.6 Alpha - Pilot Workflow and Permit Evidence Links
 
 ## Added
 - Source-aware permit metadata in permit clusters.
