@@ -1,12 +1,18 @@
-# PERM-002 - Property-First Permit Clustering
+# v0.9 Alpha - Engine Foundation
 
 ## Added
-- Groups permits by address/parcel into one property opportunity.
-- Adds permit timeline inside each opportunity card.
-- Adds total permit value for each address cluster.
-- Adds official permit detail links per permit.
-- Adds contractor/filer placeholder when the public GIS layer does not expose contractor detail.
-- Adds permit address cluster metric.
+- Property Intelligence Record generation.
+- Parcel-first property IDs where parcel data exists.
+- Standard Signal objects.
+- Standard Evidence objects.
+- Organization normalization for owners, contractors, and applicants when exposed.
+- Additional output files: `properties.json`, `organizations.json`, `signals.json`, and `evidence.json`.
+
+## Improved
+- Permit clusters now feed property records instead of only dashboard cards.
+- Permit clusters use parcel IDs as stronger identifiers when available.
+- Dashboard format remains unchanged from the preferred layout.
 
 ## Notes
-- The official BuildingPermits GIS layer exposes permit and owner fields, but contractor/applicant fields may be blank or unavailable. Contractor enrichment is now separated as CONT-001 and will require a secondary detail lookup/source.
+- Contractor/applicant enrichment is limited to fields exposed by the public permit GIS layer. A secondary permit-detail lookup is still required for richer contractor data.
+- GIS parcel enrichment and Register of Deeds ownership history are next certified connector targets.

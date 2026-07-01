@@ -1,6 +1,6 @@
 {
-  "name": "pi-property-intelligence",
-  "version": "0.2.4-perm001",
+  "name": "reliable-intel",
+  "version": "0.9.0-alpha",
   "private": true,
   "scripts": {
     "test": "node tests/run-tests.js",

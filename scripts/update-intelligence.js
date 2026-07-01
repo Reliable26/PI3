@@ -443,6 +443,154 @@ function buildPermitOpportunity(record) {
   return buildPermitClusterOpportunity({ key: record.address || record.caseNumber, items: [record] });
 }
 
+
+function normalizeOrgName(name='') {
+  const raw = String(name || '').trim();
+  if (!raw) return '';
+  return raw
+    .replace(/\b(L\.L\.C\.|LLC|L\.P\.|LP|INC\.|INC|CORP\.|CORPORATION|COMPANY|CO\.)\b/ig, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function organizationId(name='', type='Organization') {
+  const normalized = normalizeOrgName(name);
+  if (!normalized) return '';
+  return `ORG-${hash(`${type}|${normalized}`).toUpperCase()}`;
+}
+
+function parcelPropertyId(parcel='', address='') {
+  const cleanParcel = String(parcel || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+  if (cleanParcel) return `PARCEL-${cleanParcel}`;
+  return `PIR-${hash(normalizeAddressKey(address || 'unknown-property')).toUpperCase()}`;
+}
+
+function inferPropertyTypeFromPermit(record) {
+  const text = normalizeText(`${record.existingUse || ''} ${record.proposedUse || ''} ${record.description || ''} ${record.propertyName || ''}`);
+  const checks = [
+    ['Multifamily', ['apartment','apartments','multifamily','multi family','multi-family']],
+    ['Hospitality', ['hotel','motel','inn','suite','extended stay']],
+    ['Healthcare', ['hospital','medical','clinic','nursing','assisted living','rehab']],
+    ['Industrial', ['warehouse','industrial','distribution','manufacturing']],
+    ['Office', ['office','business']],
+    ['Retail', ['retail','restaurant','shopping','store','mall','plaza']],
+    ['Education', ['school','college','university','education']],
+    ['Government', ['city of charlotte','mecklenburg county','government']]
+  ];
+  for (const [type, terms] of checks) if (terms.some(t => text.includes(normalizeText(t)))) return type;
+  return 'Commercial / Needs Classification';
+}
+
+function buildSignal({ propertyId, type, category, source, date, confidence, impact, evidenceIds = [], metadata = {} }) {
+  return {
+    signalId: `SIG-${hash(`${propertyId}|${type}|${category}|${date}|${JSON.stringify(metadata).slice(0,80)}`).toUpperCase()}`,
+    propertyId,
+    type,
+    category,
+    source,
+    date,
+    confidence,
+    impact,
+    evidenceIds,
+    metadata
+  };
+}
+
+function buildEvidence({ source, url, title, publishedAt, type='Public Source', confidence=0.9 }) {
+  return {
+    evidenceId: `EVD-${hash(`${source}|${url}|${title}|${publishedAt}`).toUpperCase()}`,
+    source,
+    type,
+    url,
+    title,
+    publishedAt,
+    detectedAt: nowIso(),
+    confidence
+  };
+}
+
+function buildPermitPropertyRecord(opportunity) {
+  const c = opportunity.permitCluster || {};
+  const address = c.address || opportunity.propertyName || '';
+  const ownerName = c.owner || '';
+  const propertyId = parcelPropertyId(c.parcelId, address);
+  const propertyType = inferPropertyTypeFromPermit((c.permits || [])[0] || opportunity.permit || {});
+  return {
+    propertyId,
+    parcelId: c.parcelId || '',
+    propertyName: address,
+    address,
+    county: opportunity.county || 'Mecklenburg',
+    territory: opportunity.territory || settings.territoryName,
+    propertyType,
+    owner: ownerName ? { organizationId: organizationId(ownerName, 'Owner'), name: normalizeOrgName(ownerName), confidence: 0.88, source: 'Permit record' } : null,
+    management: null,
+    currentHeatScore: opportunity.ratings?.overall || 0,
+    latestSignal: opportunity.category,
+    latestSignalDate: opportunity.eventDate,
+    evidenceCount: opportunity.evidenceCount || 0,
+    permitSummary: {
+      permitCount: c.permitCount || 0,
+      totalCost: c.totalCost || 0,
+      categories: c.categories || []
+    },
+    updatedAt: nowIso()
+  };
+}
+
+function buildFirePropertyRecord(opportunity) {
+  const propertyId = opportunity.propertyId || `PIR-${hash(opportunity.propertyName || opportunity.id).toUpperCase()}`;
+  return {
+    propertyId,
+    parcelId: '',
+    propertyName: opportunity.propertyName,
+    address: '',
+    county: opportunity.county || 'Mecklenburg / Charlotte Metro',
+    territory: opportunity.territory || settings.territoryName,
+    propertyType: opportunity.category === 'Multifamily Fire' ? 'Multifamily' : 'Commercial / Needs Classification',
+    owner: null,
+    management: null,
+    currentHeatScore: opportunity.ratings?.overall || 0,
+    latestSignal: opportunity.category,
+    latestSignalDate: opportunity.eventDate,
+    evidenceCount: opportunity.evidenceCount || 0,
+    updatedAt: nowIso()
+  };
+}
+
+function dedupeProperties(records) {
+  const map = new Map();
+  for (const rec of records) {
+    const existing = map.get(rec.propertyId);
+    if (!existing || (rec.evidenceCount || 0) > (existing.evidenceCount || 0) || (rec.currentHeatScore || 0) > (existing.currentHeatScore || 0)) map.set(rec.propertyId, rec);
+  }
+  return [...map.values()].sort((a,b) => (b.currentHeatScore || 0) - (a.currentHeatScore || 0));
+}
+
+function collectOrganizationsFromOpportunities(opportunities) {
+  const map = new Map();
+  for (const o of opportunities) {
+    const c = o.permitCluster;
+    if (!c) continue;
+    const add = (name, type) => {
+      const normalized = normalizeOrgName(name);
+      if (!normalized) return;
+      const id = organizationId(normalized, type);
+      const existing = map.get(id) || { organizationId: id, name: normalized, type, roles: new Set(), propertyIds: new Set(), evidenceCount: 0 };
+      existing.roles.add(type);
+      existing.propertyIds.add(o.propertyId);
+      existing.evidenceCount += 1;
+      map.set(id, existing);
+    };
+    add(c.owner, 'Owner');
+    for (const p of c.permits || []) {
+      add(p.contractor, 'Contractor');
+      add(p.applicant, 'Applicant');
+    }
+  }
+  return [...map.values()].map(x => ({ ...x, roles: [...x.roles], propertyIds: [...x.propertyIds] }));
+}
+
 function buildPermitClusterOpportunity(cluster) {
   const items = cluster.items;
   const newest = items[0];
@@ -472,7 +620,7 @@ function buildPermitClusterOpportunity(cluster) {
   }));
   return {
     id: `PI-${new Date().getUTCFullYear()}-${hash(`permitcluster|${cluster.key}|${category}`).toUpperCase()}`,
-    propertyId: `PIR-${hash(address).toUpperCase()}`,
+    propertyId: parcelPropertyId(newest.parcelId, address),
     propertyName: address,
     propertyStatus: newest.address ? 'Permit Address Cluster - Needs Property Verification' : 'Needs Verification',
     county: 'Mecklenburg',
@@ -508,7 +656,8 @@ function buildPermitClusterOpportunity(cluster) {
       owner: newest.owner || '',
       permits: permitList
     },
-    permit: { caseNumber: newest.caseNumber, address: newest.address, parcelId: newest.parcelId, cost: newest.cost, description: newest.description, existingUse: newest.existingUse, proposedUse: newest.proposedUse }
+    permit: { caseNumber: newest.caseNumber, address: newest.address, parcelId: newest.parcelId, cost: newest.cost, description: newest.description, existingUse: newest.existingUse, proposedUse: newest.proposedUse },
+    intelligenceObject: 'Property Intelligence Record'
   };
 }
 
@@ -587,19 +736,13 @@ async function main() {
   const permitClusters = clusterPermitRecords(permitCandidates);
   const permitOpportunities = permitClusters.map(buildPermitClusterOpportunity);
   const opportunities = [...fireOpportunities, ...permitOpportunities].sort((a,b) => b.ratings.overall - a.ratings.overall);
-  const properties = opportunities.map(o => ({
-    propertyId: o.propertyId,
-    propertyName: o.propertyName,
-    status: o.propertyStatus,
-    territory: o.territory,
-    county: o.county,
-    latestSignal: o.category,
-    latestSignalDate: o.eventDate,
-    opportunityClass: o.opportunityClass,
-    evidenceCount: o.evidenceCount,
-    confidence: o.ratings.confidence,
-    sources: o.sources
-  }));
+  const properties = dedupeProperties(opportunities.map(o => o.opportunityClass === 'Capital Improvement' ? buildPermitPropertyRecord(o) : buildFirePropertyRecord(o)));
+  const organizations = collectOrganizationsFromOpportunities(opportunities);
+  const signals = opportunities.flatMap(o => {
+    const evidenceIds = (o.sources || []).map(s => buildEvidence({ source: s.name, url: s.url, title: s.title, publishedAt: s.publishedAt }).evidenceId);
+    return [buildSignal({ propertyId: o.propertyId, type: o.opportunityClass === 'Capital Improvement' ? 'PERMIT' : 'FIRE', category: o.category, source: o.sources?.[0]?.name || 'Public Source', date: o.eventDate, confidence: (o.ratings?.confidence || 0) / 100, impact: (o.ratings?.impact || 0) / 100, evidenceIds, metadata: { opportunityId: o.id } })];
+  });
+  const evidence = opportunities.flatMap(o => (o.sources || []).map(s => buildEvidence({ source: s.name, url: s.url, title: s.title, publishedAt: s.publishedAt })));
   const byClass = opportunities.reduce((acc, o) => { acc[o.opportunityClass] = (acc[o.opportunityClass] || 0) + 1; return acc; }, {});
   const output = {
     generatedAt: nowIso(),
@@ -612,6 +755,9 @@ async function main() {
       emergencyOpportunities: byClass.Emergency || 0,
       capitalImprovementOpportunities: byClass['Capital Improvement'] || 0,
       properties: properties.length,
+      organizations: organizations.length,
+      signals: signals.length,
+      evidence: evidence.length,
       oldItemsExcluded: oldExcluded,
       nonCommercialExcluded,
       outOfTerritoryExcluded,
@@ -625,16 +771,22 @@ async function main() {
     },
     health,
     opportunities,
-    properties
+    properties,
+    organizations,
+    signals,
+    evidence
   };
   const dataDir = path.join(root, 'dist', 'data');
   ensureDir(dataDir);
   fs.writeFileSync(path.join(dataDir, 'opportunities.json'), JSON.stringify(output, null, 2));
   fs.writeFileSync(path.join(dataDir, 'properties.json'), JSON.stringify({ generatedAt: output.generatedAt, properties }, null, 2));
+  fs.writeFileSync(path.join(dataDir, 'organizations.json'), JSON.stringify({ generatedAt: output.generatedAt, organizations }, null, 2));
+  fs.writeFileSync(path.join(dataDir, 'signals.json'), JSON.stringify({ generatedAt: output.generatedAt, signals }, null, 2));
+  fs.writeFileSync(path.join(dataDir, 'evidence.json'), JSON.stringify({ generatedAt: output.generatedAt, evidence }, null, 2));
   fs.writeFileSync(path.join(dataDir, 'source-health.json'), JSON.stringify({ generatedAt: output.generatedAt, health, summary: output.summary }, null, 2));
   console.log(`PI update complete. Opportunities: ${opportunities.length}. Emergency: ${byClass.Emergency || 0}. Capital: ${byClass['Capital Improvement'] || 0}. Permit records: ${permitRaw}.`);
 }
 
 if (require.main === module) main().catch(err => { console.error(err); process.exit(1); });
 
-module.exports = { parseRss, classifyFire, extractPropertyName, isInsideTargetTerritory, buildOpportunity, classifyPermit, normalizePermitFeature, buildPermitOpportunity, buildPermitClusterOpportunity, clusterPermitRecords };
+module.exports = { parseRss, classifyFire, extractPropertyName, isInsideTargetTerritory, buildOpportunity, classifyPermit, normalizePermitFeature, buildPermitOpportunity, buildPermitClusterOpportunity, clusterPermitRecords, normalizeAddressKey, parcelPropertyId, normalizeOrgName, organizationId, buildPermitPropertyRecord, dedupeProperties };

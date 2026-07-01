@@ -1,6 +1,16 @@
-# Architecture
+# Reliable Intel Architecture
 
-PI uses GitHub Actions to generate static JSON data during deployment. Generated data is deployed to GitHub Pages but is not committed back to Git.
+## Core Pipeline
 
-Current pipeline:
-Google News RSS -> Classifier -> Recency Filter -> Grouping -> Opportunity Builder -> Static Dashboard
+Public Source -> Connector -> Normalization -> Qualification -> Property Resolver -> Signal Engine -> Evidence Engine -> Opportunity Engine -> Dashboard
+
+## Primary Objects
+
+- Property Intelligence Record
+- Signal
+- Evidence
+- Organization
+- Opportunity
+
+## Rule
+No source publishes directly to the dashboard. Every record must pass through qualification and property resolution.
