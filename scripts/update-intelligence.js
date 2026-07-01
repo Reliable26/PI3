@@ -340,11 +340,17 @@ function normalizeAddressKey(address='') {
     .trim();
 }
 
-function permitDetailUrl(record) {
+function permitSourceRecordUrl(record) {
   if (!record.caseNumber) return record.link;
   const where = `permitnum='${String(record.caseNumber).replace(/'/g, "''")}'`;
-  const params = new URLSearchParams({ where, outFields: '*', returnGeometry: 'false', f: 'html' });
+  const params = new URLSearchParams({ where, outFields: '*', returnGeometry: 'false', f: 'pjson' });
   return `${settings.permitSources?.[0]?.url || record.link}?${params.toString()}`;
+}
+
+function permitDetailUrl(record) {
+  // Public source record is currently the verified permit evidence.
+  // Keep this separate so an Accela detail page can be added later if a stable URL pattern is confirmed.
+  return permitSourceRecordUrl(record);
 }
 
 function contractorSearchUrl(record) {
@@ -680,13 +686,14 @@ function buildPermitClusterOpportunity(cluster) {
     owner: x.owner || '',
     applicant: x.applicant || '',
     contractor: x.contractor || '',
+    sourceRecordUrl: permitSourceRecordUrl(x),
     permitDetailUrl: permitDetailUrl(x),
     contractorSearchUrl: contractorSearchUrl(x)
   }));
   const detailLinks = items.map(x => ({
     name: x.source,
     title: `${x.caseNumber || 'Permit'} - ${x.category}${x.contractor ? ` - ${x.contractor}` : ''}`,
-    url: permitDetailUrl(x),
+    url: permitSourceRecordUrl(x),
     publishedAt: x.publishedAt
   }));
   return {
@@ -940,4 +947,4 @@ async function main() {
 
 if (require.main === module) main().catch(err => { console.error(err); process.exit(1); });
 
-module.exports = { parseRss, classifyFire, extractPropertyName, isInsideTargetTerritory, buildOpportunity, classifyPermit, normalizePermitFeature, buildPermitOpportunity, buildPermitClusterOpportunity, clusterPermitRecords, normalizeAddressKey, parcelPropertyId, normalizeOrgName, organizationId, buildPermitPropertyRecord, dedupeProperties, buildGisParcelQueryUrl };
+module.exports = { parseRss, classifyFire, extractPropertyName, isInsideTargetTerritory, buildOpportunity, classifyPermit, normalizePermitFeature, buildPermitOpportunity, buildPermitClusterOpportunity, clusterPermitRecords, normalizeAddressKey, parcelPropertyId, normalizeOrgName, organizationId, buildPermitPropertyRecord, dedupeProperties, buildGisParcelQueryUrl, permitSourceRecordUrl };

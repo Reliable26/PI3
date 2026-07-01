@@ -1,6 +1,6 @@
 {
-  "name": "reliable-intel",
-  "version": "0.9.2-alpha",
+  "name": "commercial-property-intelligence",
+  "version": "0.9.4-alpha",
   "private": true,
   "scripts": {
     "test": "node tests/run-tests.js",

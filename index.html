@@ -3,103 +3,143 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Reliable Intel</title>
+  <title>Commercial Property Intelligence</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <div class="app-shell">
     <aside class="sidebar">
-      <div class="brand">
-        <div class="brand-mark">RI</div>
-        <div>
-          <strong>Reliable Intel</strong>
-          <span>Property Intelligence</span>
-        </div>
+      <div class="build-title">
+        <strong>Commercial Property Intelligence</strong>
+        <span>Development Build</span>
       </div>
       <nav>
         <a href="#top" class="active">Dashboard</a>
-        <a href="#opportunities">Today&apos;s Opportunities</a>
         <a href="#properties">Properties</a>
         <a href="#organizations">Organizations</a>
+        <a href="#map">Map</a>
         <a href="#sources">Sources</a>
-        <a href="#qa">QA</a>
+        <a href="#qa">QA / Data Health</a>
       </nav>
+      <div class="side-card">
+        <span>Data Status</span>
+        <strong id="sideStatus">Loading</strong>
+        <small id="sideUpdated">Not updated</small>
+        <button id="refreshBtn" type="button">Update Intelligence</button>
+      </div>
+      <div class="side-card muted-card">
+        <span>Build</span>
+        <strong>v0.9.4 Alpha</strong>
+        <small>Workspace + source links</small>
+      </div>
     </aside>
 
-    <main class="main" id="top">
+    <main class="workspace" id="top">
       <header class="topbar">
-        <div>
-          <p class="eyebrow">Commercial Property Intelligence</p>
-          <h1>Today&apos;s Commercial Intelligence</h1>
-          <p id="briefLine" class="brief-line">Loading latest intelligence...</p>
+        <button class="menu-button" type="button" aria-label="Menu">☰</button>
+        <div class="search-wrap">
+          <span>⌕</span>
+          <input id="searchInput" type="search" placeholder="Search properties, owners, addresses, permits..." />
         </div>
-        <button id="refreshBtn" type="button">Update Intelligence</button>
-      </header>
-
-      <section class="metrics" id="metrics"></section>
-
-      <section class="panel controls-panel" id="opportunity-section">
-        <div class="panel-head no-border">
-          <div>
-            <h2>Today&apos;s Opportunities</h2>
-            <span id="feedStatus">Loading</span>
-          </div>
-        </div>
-        <div class="controls">
-          <label>Search
-            <input id="searchInput" type="search" placeholder="Property, address, owner, contractor, parcel, permit" />
-          </label>
-          <label>Sort
+        <div class="top-actions">
+          <button id="filterToggle" type="button" class="ghost">Filters</button>
+          <label class="sort-label">Sort
             <select id="sortSelect">
               <option value="score">Opportunity Score</option>
               <option value="newest">Newest Activity</option>
-              <option value="value">Total Permit Value</option>
+              <option value="value">Permit Value</option>
               <option value="signals">Most Signals</option>
               <option value="property">Property Name</option>
             </select>
           </label>
-          <label>Category
-            <select id="categoryFilter">
-              <option value="all">All Categories</option>
-              <option value="Emergency">Emergency</option>
-              <option value="Capital Improvement">Capital Improvement</option>
-              <option value="Strategic">Strategic</option>
-            </select>
-          </label>
-          <label>Minimum Score
-            <select id="scoreFilter">
-              <option value="0">All Scores</option>
-              <option value="80">80+</option>
-              <option value="90">90+</option>
-              <option value="95">95+</option>
-            </select>
-          </label>
         </div>
-        <div id="opportunities" class="cards"></div>
+      </header>
+
+      <section class="overview">
+        <div>
+          <h1>Dashboard Overview</h1>
+          <p id="briefLine">Loading public-record intelligence...</p>
+        </div>
+        <div id="lastUpdated" class="updated">Not loaded</div>
+      </section>
+
+      <section class="metrics" id="metrics"></section>
+
+      <section class="filter-row" id="filterRow">
+        <label>Category
+          <select id="categoryFilter">
+            <option value="all">All Categories</option>
+            <option value="Emergency">Emergency</option>
+            <option value="Capital Improvement">Capital Improvement</option>
+            <option value="Strategic">Strategic</option>
+          </select>
+        </label>
+        <label>Minimum Score
+          <select id="scoreFilter">
+            <option value="0">All Scores</option>
+            <option value="75">75+</option>
+            <option value="80">80+</option>
+            <option value="90">90+</option>
+            <option value="95">95+</option>
+          </select>
+        </label>
+        <label>Heat
+          <select id="heatFilter">
+            <option value="all">All Heat Levels</option>
+            <option value="Critical">Critical</option>
+            <option value="High">High</option>
+            <option value="Medium">Medium</option>
+            <option value="Low">Low</option>
+          </select>
+        </label>
+      </section>
+
+      <section class="content-grid">
+        <div class="left-column">
+          <section class="panel opportunities-panel">
+            <div class="panel-title">
+              <div>
+                <h2>Today's Top Properties</h2>
+                <p id="feedStatus">Ranked by opportunity score</p>
+              </div>
+            </div>
+            <div id="opportunities" class="property-list"></div>
+          </section>
+
+          <section class="panel map-panel" id="map">
+            <div class="panel-title">
+              <div>
+                <h2>Property Map</h2>
+                <p>Live overview of today's properties</p>
+              </div>
+            </div>
+            <div class="map-canvas" id="mapCanvas"></div>
+            <div class="map-legend">
+              <span><i class="dot high"></i> High</span>
+              <span><i class="dot medium"></i> Medium</span>
+              <span><i class="dot low"></i> Low</span>
+              <span><i class="pin"></i> Updated Today</span>
+            </div>
+          </section>
+        </div>
+
+        <aside class="detail-panel" id="propertyDetail">
+          <div class="empty-detail">Select a property to view its Property Intelligence Record.</div>
+        </aside>
       </section>
 
       <section class="panel" id="properties-section">
-        <div class="panel-head">
-          <div>
-            <h2>Property Intelligence Records</h2>
-            <span>Resolved properties ranked by heat score and recent activity</span>
-          </div>
-        </div>
+        <div class="panel-title"><div><h2>Property Intelligence Records</h2><p>Resolved properties generated from public signals.</p></div></div>
         <div id="properties" class="property-grid"></div>
       </section>
 
       <section class="panel" id="organizations-section">
-        <div class="panel-head">
-          <div>
-            <h2>Organization Resolver</h2>
-            <span>Owners, applicants, contractors, and watch-list matches</span>
-          </div>
-        </div>
+        <div class="panel-title"><div><h2>Organizations</h2><p>Owners, applicants, contractors, and watch-list matches.</p></div></div>
         <div id="organizations" class="org-grid"></div>
       </section>
 
       <details class="panel collapsible" id="sources">
-        <summary><span>Source Health</span><small id="lastUpdated">Not loaded</small></summary>
+        <summary><span>Source Health</span><small>Collapsed by default</small></summary>
         <div id="sourceHealth" class="source-grid"></div>
       </details>
 

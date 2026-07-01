@@ -1,5 +1,6 @@
-const state = { data: null, opportunities: [] };
+const state = { data: null, opportunities: [], selectedId: null };
 
+const esc = (value='') => String(value ?? '').replace(/[&<>'"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]));
 const fmtDateTime = (value) => {
   if (!value) return 'Unknown';
   const d = new Date(value);
@@ -18,10 +19,10 @@ const relativeAge = (value) => {
   return `${Math.round(hrs / 24)} days ago`;
 };
 const latestActivityDate = (o) => {
-  const dates = [o.publishedDate, o.piDetectedDate, o.permitCluster?.latestIssuedDate, ...(o.permitCluster?.permits || []).map(p => p.issuedDate)].filter(Boolean).map(x => new Date(x).getTime()).filter(Number.isFinite);
+  const dates = [o.publishedDate, o.eventDate, o.piDetectedDate, o.permitCluster?.latestIssuedDate, ...(o.permitCluster?.permits || []).map(p => p.issuedDate)]
+    .filter(Boolean).map(x => new Date(x).getTime()).filter(Number.isFinite);
   return dates.length ? Math.max(...dates) : 0;
 };
-function metric(label, value) { return `<div class="metric"><span>${label}</span><strong>${value}</strong></div>`; }
 function money(value) {
   const n = Number(value || 0);
   if (!Number.isFinite(n) || n <= 0) return 'Not listed';
@@ -29,7 +30,7 @@ function money(value) {
 }
 function compactMoney(value) {
   const n = Number(value || 0);
-  if (!Number.isFinite(n) || n <= 0) return 'Not listed';
+  if (!Number.isFinite(n) || n <= 0) return '$0';
   if (n >= 1000000) return `$${(n / 1000000).toFixed(1)}M`;
   if (n >= 1000) return `$${Math.round(n / 1000)}K`;
   return `$${Math.round(n)}`;
@@ -40,168 +41,46 @@ function heatLabel(score=0) {
   if (score >= 75) return 'Medium';
   return 'Low';
 }
-function sourceRow(h) {
-  const cls = h.status === 'pass' ? 'pass' : 'fail';
-  return `<div class="source ${cls}"><strong>${h.source}</strong><span>${h.query || ''}</span><small>${h.status?.toUpperCase() || 'UNKNOWN'} • ${h.itemsRetrieved ?? 0} items • ${h.durationMs ?? 0}ms</small></div>`;
-}
-function scoreBar(label, value) {
-  const safe = Math.max(0, Math.min(100, Number(value || 0)));
-  return `<div class="score-row"><span>${label}</span><b>${safe}</b><div class="bar"><i style="width:${safe}%"></i></div></div>`;
-}
-function permitClusterBlock(o) {
-  const cluster = o.permitCluster;
-  if (!cluster) return '';
-  const permits = (cluster.permits || [])
-    .slice()
-    .sort((a,b) => new Date(b.issuedDate || 0) - new Date(a.issuedDate || 0))
-    .map(p => `<li>
-      <div class="timeline-date">${fmtDateTime(p.issuedDate)}</div>
-      <strong>${p.caseNumber || 'Permit'}</strong>
-      <span>${p.category || 'Permit'}</span>
-      <em>${money(p.cost)}</em>
-      <small>${p.description || ''}</small>
-      <div class="permit-links">
-        ${p.permitDetailUrl ? `<a href="${p.permitDetailUrl}" target="_blank" rel="noopener">Permit detail</a>` : ''}
-        ${p.contractor ? `<a href="${p.contractorSearchUrl}" target="_blank" rel="noopener">${p.contractor}</a>` : '<span>Contractor/filer not exposed in permit layer</span>'}
-      </div>
-    </li>`).join('');
-  return `<div class="brief-section"><h4>Permit Timeline</h4>
-    <p>${cluster.permitCount || 0} permit${cluster.permitCount === 1 ? '' : 's'} at this property from ${fmtDateTime(cluster.firstIssuedDate)} to ${fmtDateTime(cluster.latestIssuedDate)}. Total listed value: <strong>${money(cluster.totalCost)}</strong>.</p>
-    ${cluster.owner ? `<p><strong>Owner from permit record:</strong> ${cluster.owner}</p>` : ''}
-    <ul class="permits timeline-list">${permits}</ul></div>`;
-}
-function propertyResolutionBlock(o) {
-  const r = o.propertyResolution;
-  if (!r) return '';
-  const attrs = r.gisAttributes || {};
-  const rows = [
-    ['Status', r.status], ['Method', r.method], ['Parcel', r.parcelId],
-    ['Confidence', r.confidence ? `${Math.round(r.confidence * 100)}%` : 'Unknown'],
-    ['GIS PID', attrs.PID || ''], ['NC PIN', attrs.NC_PIN || ''],
-    ['Map Book/Page', [attrs.MAP_BOOK, attrs.MAP_PAGE, attrs.MAP_BLOCK, attrs.LOT_NUM].filter(Boolean).join('-')]
-  ].filter(x => x[1]);
-  return `<div class="brief-section"><h4>Property Resolution</h4>
-    <div class="resolution-grid compact">${rows.map(([k,v]) => `<div><span>${k}</span><strong>${v}</strong></div>`).join('')}</div>
-    <div class="permit-links">
-      ${r.gisSourceUrl ? `<a href="${r.gisSourceUrl}" target="_blank" rel="noopener">GIS source</a>` : ''}
-      ${r.gisQueryUrl ? `<a href="${r.gisQueryUrl}" target="_blank" rel="noopener">GIS query</a>` : ''}
-    </div></div>`;
-}
-function servicesStrip(o) {
-  const services = (o.recommendedServices || []).slice(0, 6);
-  if (!services.length) return '';
-  return `<div class="service-strip">${services.map(s => `<span>${s}</span>`).join('')}</div>`;
-}
-function scoreBreakdown(o) {
-  const breakdown = (o.signalBreakdown || []);
-  if (!breakdown.length) return '';
-  return `<div class="brief-section"><h4>Opportunity Drivers</h4><ul class="breakdown">${breakdown.map(x => `<li><span>${x.label}</span><b>+${x.points}</b></li>`).join('')}</ul></div>`;
-}
-function evidenceList(o) {
-  const sources = (o.sources || []);
-  if (!sources.length) return '<p class="empty">No public evidence attached.</p>';
-  return `<ul class="sources">${sources.map(s => `<li><a href="${s.url}" target="_blank" rel="noopener">${s.name || 'Source'}</a><span>${fmtDateTime(s.publishedAt)}</span><em>${s.title || ''}</em></li>`).join('')}</ul>`;
+function metricCard(label, value, sub='', icon='') {
+  return `<div class="metric"><div><span>${esc(label)}</span><strong>${esc(value)}</strong><small>${esc(sub)}</small></div>${icon ? `<b>${icon}</b>` : ''}</div>`;
 }
 function opportunityLead(o) {
   if (o.permitCluster) {
     const c = o.permitCluster;
-    return `${c.permitCount || 0} permit${c.permitCount === 1 ? '' : 's'} totaling ${compactMoney(c.totalCost)} were identified for this property.`;
+    return `${c.permitCount || 0} permit${c.permitCount === 1 ? '' : 's'} totaling ${compactMoney(c.totalCost)} identified for this property.`;
   }
   return o.whatChanged || `${o.category || 'Opportunity'} identified for this property.`;
 }
-function opportunityCard(o, rank) {
-  const ratings = o.ratings || {};
-  const score = ratings.overall ?? 0;
-  const category = o.opportunityClass || o.category || 'Opportunity';
-  return `<article class="card heat-${heatLabel(score).toLowerCase()}">
-    <div class="rank-badge">#${rank}</div>
-    <div class="card-top">
-      <div class="card-copy">
-        <p class="lead-sentence">${opportunityLead(o)}</p>
-        <h3>${o.propertyName || 'Property Requires Verification'}</h3>
-        <p>${category} • ${o.territory || 'Territory pending'} • ${o.propertyStatus || 'Needs Verification'}</p>
-      </div>
-      <div class="rating"><span>${score}</span><small>${heatLabel(score)}</small></div>
-    </div>
-    ${servicesStrip(o)}
-    <div class="date-grid">
-      <div><span>Latest Activity</span><strong>${fmtDateTime(latestActivityDate(o))}</strong><small>${relativeAge(latestActivityDate(o))}</small></div>
-      <div><span>PI Detected</span><strong>${fmtDateTime(o.piDetectedDate)}</strong><small>${relativeAge(o.piDetectedDate)}</small></div>
-      <div><span>Evidence</span><strong>${o.evidenceCount || 0} source${o.evidenceCount === 1 ? '' : 's'}</strong><small>${o.propertyResolution?.parcelId || 'Parcel pending'}</small></div>
-    </div>
-    <div class="scores">
-      ${scoreBar('Opportunity', ratings.opportunity ?? 0)}
-      ${scoreBar('Confidence', ratings.confidence ?? 0)}
-      ${scoreBar('Freshness', ratings.freshness ?? 0)}
-      ${scoreBar('Impact', ratings.impact ?? 0)}
-      ${scoreBar('Coverage', ratings.coverage ?? 0)}
-    </div>
-    <details>
-      <summary>Open Property Intelligence Record</summary>
-      <div class="brief-grid">
-        <div class="brief-section"><h4>What Changed</h4><p>${o.whatChanged || ''}</p></div>
-        <div class="brief-section"><h4>Why This Matters</h4><p>${o.whyThisMatters || ''}</p></div>
-      </div>
-      ${propertyResolutionBlock(o)}
-      ${permitClusterBlock(o)}
-      ${scoreBreakdown(o)}
-      <div class="brief-section"><h4>Supporting Public Sources</h4>${evidenceList(o)}</div>
-    </details>
-  </article>`;
+function propertySubline(o) {
+  const p = findProperty(o.propertyId);
+  const items = [o.propertyName, p?.propertyType, p?.owner?.name, p?.management?.name].filter(Boolean);
+  return items.length ? items.slice(1).join(' • ') : (o.category || 'Opportunity');
 }
-function propertyCard(p) {
-  const timeline = (p.timelines || [])
-    .slice()
-    .sort((a,b) => new Date(b.date || 0) - new Date(a.date || 0))
-    .slice(0, 6)
-    .map(t => `<li><span>${fmtDateTime(t.date)}</span><strong>${t.label || t.type}</strong><small>${t.description || ''}</small>${t.url ? `<a href="${t.url}" target="_blank" rel="noopener">Evidence</a>` : ''}</li>`).join('');
-  const dq = p.dataQuality || {};
-  return `<article class="property-card">
-    <div class="property-head">
-      <div><h3>${p.propertyName || p.address || 'Property'}</h3><p>${p.address || ''}</p></div>
-      <div class="rating small-rating"><span>${p.currentHeatScore || 0}</span><small>Heat</small></div>
-    </div>
-    <div class="resolution-grid">
-      <div><span>Parcel</span><strong>${p.parcelId || 'Pending'}</strong></div>
-      <div><span>Type</span><strong>${p.propertyType || 'Pending'}</strong></div>
-      <div><span>Owner</span><strong>${p.owner?.name || 'Pending'}</strong></div>
-      <div><span>Management</span><strong>${p.management?.name || 'Pending'}</strong></div>
-      <div><span>Permits</span><strong>${p.permitSummary?.permitCount || 0}</strong></div>
-      <div><span>Listed Value</span><strong>${compactMoney(p.permitSummary?.totalCost || 0)}</strong></div>
-      <div><span>Data Quality</span><strong>${dq.overall ?? 'Pending'}${dq.overall ? '%' : ''}</strong></div>
-    </div>
-    <details><summary>Chronological property timeline</summary><ul class="timeline">${timeline || '<li>No timeline records yet.</li>'}</ul></details>
-  </article>`;
+function servicesStrip(o, limit=6) {
+  const services = (o.recommendedServices || []).slice(0, limit);
+  if (!services.length) return '';
+  return `<div class="service-strip">${services.map(s => `<span>${esc(s)}</span>`).join('')}</div>`;
 }
-function organizationRow(o) {
-  return `<div class="org-row"><strong>${o.name}</strong><span>${(o.roles || [o.type]).join(', ')}</span><small>${o.propertyIds?.length || 0} properties • ${o.evidenceCount || 0} evidence records${o.watchList ? ' • Watch list' : ''}</small></div>`;
-}
-function qaRows(summary={}) {
-  const rows = [
-    ['Permit Records Retrieved', summary.permitRecordsRetrieved ?? 0], ['Permit Candidates', summary.permitCandidates ?? 0],
-    ['Permit Address Clusters', summary.permitClusters ?? 0], ['GIS Parcel Matches', `${summary.gisMatches ?? 0}/${summary.gisLookups ?? 0}`],
-    ['Properties Created/Updated', summary.properties ?? 0], ['Organizations Resolved', summary.organizations ?? 0],
-    ['Signals Created', summary.signals ?? 0], ['Evidence Records', summary.evidence ?? 0],
-    ['Out of Territory Excluded', summary.outOfTerritoryExcluded ?? 0],
-    ['Residential / Noise Excluded', (summary.nonCommercialExcluded ?? 0) + (summary.permitExcluded ?? 0)],
-    ['Old Items Excluded', (summary.oldItemsExcluded ?? 0) + (summary.permitOldExcluded ?? 0)], ['Duplicates Removed', summary.duplicateRawExcluded ?? 0]
-  ];
-  return rows.map(([k,v]) => `<div><span>${k}</span><strong>${v}</strong></div>`).join('');
+function findProperty(propertyId) {
+  return (state.data?.properties || []).find(p => p.propertyId === propertyId);
 }
 function searchableText(o) {
-  return [o.propertyName, o.category, o.territory, o.whatChanged, o.whyThisMatters, o.propertyResolution?.parcelId, o.permitCluster?.owner, ...(o.sources || []).map(s => `${s.name} ${s.title}`), ...(o.recommendedServices || [])].filter(Boolean).join(' ').toLowerCase();
+  const p = findProperty(o.propertyId) || {};
+  return [o.propertyName, p.address, p.parcelId, p.owner?.name, p.management?.name, o.category, o.territory, o.whatChanged, o.whyThisMatters, o.propertyResolution?.parcelId, o.permitCluster?.owner, ...(o.permitCluster?.permits || []).map(p => `${p.caseNumber} ${p.description} ${p.contractor} ${p.applicant}`), ...(o.sources || []).map(s => `${s.name} ${s.title}`), ...(o.recommendedServices || [])].filter(Boolean).join(' ').toLowerCase();
 }
 function filteredSortedOpportunities() {
   const q = document.getElementById('searchInput')?.value.toLowerCase().trim() || '';
   const sort = document.getElementById('sortSelect')?.value || 'score';
   const category = document.getElementById('categoryFilter')?.value || 'all';
   const minScore = Number(document.getElementById('scoreFilter')?.value || 0);
+  const heat = document.getElementById('heatFilter')?.value || 'all';
   let items = [...(state.opportunities || [])];
   items = items.filter(o => {
     const score = o.ratings?.overall ?? 0;
     const cls = o.opportunityClass || o.category || '';
     if (score < minScore) return false;
     if (category !== 'all' && !cls.includes(category)) return false;
+    if (heat !== 'all' && heatLabel(score) !== heat) return false;
     if (q && !searchableText(o).includes(q)) return false;
     return true;
   });
@@ -214,23 +93,142 @@ function filteredSortedOpportunities() {
   });
   return items;
 }
+function opportunityListItem(o, rank) {
+  const score = o.ratings?.overall ?? 0;
+  const p = findProperty(o.propertyId) || {};
+  const selected = state.selectedId === o.id ? ' selected' : '';
+  return `<button type="button" class="opp-row${selected}" data-id="${esc(o.id)}">
+    <span class="thumb">${rank}</span>
+    <span class="opp-main"><strong>${esc(o.propertyName || 'Property Requires Verification')}</strong><small>${esc(p.address || o.county || '')}</small><em>${esc(propertySubline(o))}</em></span>
+    <span class="opp-score heat-${heatLabel(score).toLowerCase()}"><b>${score}</b><small>${heatLabel(score)}</small></span>
+    <span class="chev">›</span>
+  </button>`;
+}
 function renderOpportunities() {
-  const opportunities = document.getElementById('opportunities');
-  const feedStatus = document.getElementById('feedStatus');
   const items = filteredSortedOpportunities();
-  feedStatus.textContent = `${items.length} shown • ${state.opportunities.length} active`;
-  opportunities.innerHTML = items.map((o,i) => opportunityCard(o, i + 1)).join('') || '<p class="empty">No opportunities match the current filters.</p>';
+  document.getElementById('feedStatus').textContent = `Showing ${Math.min(items.length, 10)} of ${items.length} matching properties`;
+  document.getElementById('opportunities').innerHTML = items.slice(0, 10).map((o,i) => opportunityListItem(o, i + 1)).join('') || '<p class="empty">No properties match the current filters.</p>';
+  document.querySelectorAll('.opp-row').forEach(btn => btn.addEventListener('click', () => selectOpportunity(btn.dataset.id)));
+  if (!state.selectedId && items.length) selectOpportunity(items[0].id, false);
+  renderMap(items.slice(0, 12));
+}
+function scoreBox(label, value, cls='') {
+  return `<div class="score-box ${cls}"><strong>${esc(value)}</strong><span>${esc(label)}</span></div>`;
+}
+function verifiedBy(o) {
+  const verifications = [];
+  if (o.propertyResolution?.status) verifications.push('Mecklenburg GIS');
+  if (o.permitCluster) verifications.push('Permit Database');
+  if ((o.sources || []).some(s => /news|observer|wcnc|wsoc|wbtv|google/i.test(`${s.name} ${s.url}`))) verifications.push('News / Public Records');
+  if ((o.sources || []).length) verifications.push(`${o.sources.length} Evidence Source${o.sources.length === 1 ? '' : 's'}`);
+  return [...new Set(verifications)].slice(0, 6);
+}
+function scoreBreakdown(o) {
+  const breakdown = (o.signalBreakdown || []);
+  if (!breakdown.length) return '<p class="empty">Score drivers pending.</p>';
+  return `<ul class="drivers">${breakdown.map(x => `<li><span>✓ ${esc(x.label)}</span><b>+${esc(x.points)}</b></li>`).join('')}</ul>`;
+}
+function evidenceLinks(o) {
+  const sources = (o.sources || []);
+  if (!sources.length) return '<p class="empty">No evidence links available.</p>';
+  return sources.map((s, index) => `<a class="evidence-link" href="${esc(s.url)}" target="_blank" rel="noopener"><strong>${index + 1}. ${esc(s.name || 'Source')}</strong><span>${esc(s.title || 'Public source record')}</span><small>${fmtDateTime(s.publishedAt)}</small></a>`).join('');
+}
+function permitTimeline(o) {
+  const permits = (o.permitCluster?.permits || []).slice().sort((a,b) => new Date(b.issuedDate || 0) - new Date(a.issuedDate || 0));
+  if (!permits.length) return timelineItemsForOpportunity(o);
+  return permits.map(p => `<li>
+    <time>${fmtDateTime(p.issuedDate)}</time>
+    <div><strong>${esc(p.category || 'Permit Issued')}</strong><span>${esc(p.caseNumber || '')} ${p.cost ? `• ${money(p.cost)}` : ''}</span><small>${esc(p.description || '')}</small>
+    <div class="mini-links">${p.sourceRecordUrl ? `<a href="${esc(p.sourceRecordUrl)}" target="_blank" rel="noopener">View Source Record</a>` : ''}${p.permitDetailUrl ? `<a href="${esc(p.permitDetailUrl)}" target="_blank" rel="noopener">View Permit Detail</a>` : ''}${p.contractor ? `<a href="${esc(p.contractorSearchUrl)}" target="_blank" rel="noopener">${esc(p.contractor)}</a>` : ''}</div></div>
+  </li>`).join('');
+}
+function timelineItemsForOpportunity(o) {
+  return `<li><time>${fmtDateTime(o.eventDate || o.publishedDate)}</time><div><strong>${esc(o.category || 'Signal')}</strong><span>${esc(o.whatChanged || '')}</span>${(o.sources || [])[0]?.url ? `<div class="mini-links"><a href="${esc(o.sources[0].url)}" target="_blank" rel="noopener">View Evidence</a></div>` : ''}</div></li>`;
+}
+function renderDetail(o) {
+  if (!o) return '<div class="empty-detail">Select a property to view its Property Intelligence Record.</div>';
+  const p = findProperty(o.propertyId) || {};
+  const score = o.ratings?.overall ?? 0;
+  const intelligenceScore = p.dataQuality?.overall || o.ratings?.confidence || 0;
+  return `<div class="detail-head">
+      <button type="button" class="close-detail" aria-label="Close">×</button>
+      <div><h2>${esc(o.propertyName || 'Property Requires Verification')}</h2><p>${esc(p.address || o.county || '')}</p><small>${[p.propertyType, p.permitSummary?.permitCount ? `${p.permitSummary.permitCount} permits` : '', p.parcelId ? `Parcel ${p.parcelId}` : ''].filter(Boolean).join(' • ')}</small></div>
+      <div class="detail-scores">${scoreBox('Opportunity Score', score, 'opportunity')}${scoreBox('Intelligence Score', intelligenceScore, 'intel')}</div>
+    </div>
+    <div class="tab-row"><span class="active">Overview</span><span>Timeline</span><span>Details</span><span>Map</span><span>Evidence</span></div>
+    <section class="pir-section"><h3>What Changed</h3><p>${esc(opportunityLead(o))}</p></section>
+    <section class="pir-section"><h3>Why This Matters</h3><p>${esc(o.whyThisMatters || '')}</p></section>
+    <section class="pir-kpis">
+      <div><span>Latest Activity</span><strong>${fmtDateTime(latestActivityDate(o))}</strong><small>${relativeAge(latestActivityDate(o))}</small></div>
+      <div><span>Sources</span><strong>${o.evidenceCount || 0}</strong><small>Verified</small></div>
+      <div><span>Listed Permit Value</span><strong>${compactMoney(o.permitCluster?.totalCost || 0)}</strong><small>${o.permitCluster ? 'Permit cluster' : 'Not listed'}</small></div>
+    </section>
+    <section class="pir-section"><h3>Relevant Services</h3>${servicesStrip(o, 10)}</section>
+    <section class="pir-section"><h3>Opportunity Drivers</h3>${scoreBreakdown(o)}</section>
+    <section class="pir-section"><h3>Verified By</h3><div class="verified-list">${verifiedBy(o).map(v => `<span>✓ ${esc(v)}</span>`).join('') || '<span>Verification pending</span>'}</div></section>
+    <section class="pir-section"><h3>Timeline <small>Newest first</small></h3><ul class="detail-timeline">${permitTimeline(o)}</ul></section>
+    <section class="pir-actions">
+      ${o.sources?.[0]?.url ? `<a href="${esc(o.sources[0].url)}" target="_blank" rel="noopener">View Source Record</a>` : ''}
+      ${o.permitCluster?.permits?.[0]?.permitDetailUrl ? `<a href="${esc(o.permitCluster.permits[0].permitDetailUrl)}" target="_blank" rel="noopener">View Permit Detail</a>` : ''}
+    </section>
+    <details class="evidence-details"><summary>All Evidence</summary>${evidenceLinks(o)}</details>`;
+}
+function selectOpportunity(id, updateList=true) {
+  const o = state.opportunities.find(x => x.id === id) || filteredSortedOpportunities()[0];
+  if (!o) return;
+  state.selectedId = o.id;
+  document.getElementById('propertyDetail').innerHTML = renderDetail(o);
+  document.querySelector('.close-detail')?.addEventListener('click', () => document.getElementById('propertyDetail').innerHTML = '<div class="empty-detail">Select a property to view its Property Intelligence Record.</div>');
+  if (updateList) renderOpportunities();
+}
+function renderMap(items) {
+  const container = document.getElementById('mapCanvas');
+  if (!container) return;
+  const positions = [[18,23],[36,58],[50,34],[70,26],[78,62],[31,42],[57,71],[84,40],[45,51],[66,48],[24,70],[55,20]];
+  const markers = items.map((o,i) => {
+    const score = o.ratings?.overall ?? 0;
+    const pos = positions[i % positions.length];
+    return `<button type="button" class="map-marker ${heatLabel(score).toLowerCase()}" style="left:${pos[0]}%;top:${pos[1]}%" data-id="${esc(o.id)}" title="${esc(o.propertyName)}">${i+1}</button>`;
+  }).join('');
+  container.innerHTML = `<div class="map-label charlotte">Charlotte</div><div class="road r1"></div><div class="road r2"></div><div class="road r3"></div><div class="road r4"></div>${markers}`;
+  container.querySelectorAll('.map-marker').forEach(btn => btn.addEventListener('click', () => selectOpportunity(btn.dataset.id)));
+}
+function propertyCard(p) {
+  return `<article class="property-card"><div><h3>${esc(p.propertyName || p.address || 'Property')}</h3><p>${esc(p.address || '')}</p></div><div class="resolution-grid"><div><span>Parcel</span><strong>${esc(p.parcelId || 'Pending')}</strong></div><div><span>Type</span><strong>${esc(p.propertyType || 'Pending')}</strong></div><div><span>Owner</span><strong>${esc(p.owner?.name || 'Pending')}</strong></div><div><span>Permits</span><strong>${p.permitSummary?.permitCount || 0}</strong></div><div><span>Value</span><strong>${compactMoney(p.permitSummary?.totalCost || 0)}</strong></div><div><span>Data Quality</span><strong>${p.dataQuality?.overall || 'Pending'}${p.dataQuality?.overall ? '%' : ''}</strong></div></div></article>`;
+}
+function organizationRow(o) {
+  return `<div class="org-row"><strong>${esc(o.name)}</strong><span>${esc((o.roles || [o.type]).join(', '))}</span><small>${o.propertyIds?.length || 0} properties • ${o.evidenceCount || 0} evidence records${o.watchList ? ' • Watch list' : ''}</small></div>`;
+}
+function sourceRow(h) {
+  const cls = h.status === 'pass' ? 'pass' : 'fail';
+  return `<div class="source ${cls}"><strong>${esc(h.source)}</strong><span>${esc(h.query || '')}</span><small>${esc(h.status?.toUpperCase() || 'UNKNOWN')} • ${h.itemsRetrieved ?? 0} items • ${h.durationMs ?? 0}ms</small></div>`;
+}
+function qaRows(summary={}) {
+  const rows = [
+    ['Permit Records Retrieved', summary.permitRecordsRetrieved ?? 0], ['Permit Candidates', summary.permitCandidates ?? 0],
+    ['Permit Address Clusters', summary.permitClusters ?? 0], ['GIS Parcel Matches', `${summary.gisMatches ?? 0}/${summary.gisLookups ?? 0}`],
+    ['Properties Created/Updated', summary.properties ?? 0], ['Organizations Resolved', summary.organizations ?? 0],
+    ['Signals Created', summary.signals ?? 0], ['Evidence Records', summary.evidence ?? 0],
+    ['Out of Territory Excluded', summary.outOfTerritoryExcluded ?? 0],
+    ['Residential / Noise Excluded', (summary.nonCommercialExcluded ?? 0) + (summary.permitExcluded ?? 0)],
+    ['Old Items Excluded', (summary.oldItemsExcluded ?? 0) + (summary.permitOldExcluded ?? 0)], ['Duplicates Removed', summary.duplicateRawExcluded ?? 0]
+  ];
+  return rows.map(([k,v]) => `<div><span>${esc(k)}</span><strong>${esc(v)}</strong></div>`).join('');
 }
 function renderData(data) {
   const s = data.summary || {};
   const highPriority = (data.opportunities || []).filter(o => (o.ratings?.overall ?? 0) >= 90).length;
-  document.getElementById('briefLine').textContent = `${s.opportunities ?? 0} qualified opportunities identified. ${highPriority} high priority. ${s.permitClusters ?? 0} permit clusters. ${s.gisMatches ?? 0} GIS parcel matches.`;
-  document.getElementById('lastUpdated').textContent = `Generated ${fmtDateTime(data.generatedAt)}`;
+  const permitValue = (data.opportunities || []).reduce((sum, o) => sum + Number(o.permitCluster?.totalCost || 0), 0);
+  document.getElementById('briefLine').textContent = `${s.opportunities ?? 0} qualified properties identified from public records.`;
+  document.getElementById('lastUpdated').textContent = `Updated ${fmtDateTime(data.generatedAt)}`;
+  document.getElementById('sideStatus').textContent = 'Live';
+  document.getElementById('sideUpdated').textContent = `Last update: ${relativeAge(data.generatedAt) || fmtDateTime(data.generatedAt)}`;
   document.getElementById('metrics').innerHTML = [
-    metric('Qualified Opportunities', s.opportunities ?? 0), metric('High Priority', highPriority),
-    metric('Properties', s.properties ?? 0), metric('Capital Projects', s.capitalImprovementOpportunities ?? 0),
-    metric('Emergency', s.emergencyOpportunities ?? 0), metric('Permit Clusters', s.permitClusters ?? 0),
-    metric('GIS Matches', `${s.gisMatches ?? 0}/${s.gisLookups ?? 0}`), metric('Organizations', s.organizations ?? 0)
+    metricCard("Today's Properties", s.opportunities ?? 0, 'New or updated', '▦'),
+    metricCard('High Priority', highPriority, 'Score 90+', '⚑'),
+    metricCard('Active Permits', s.permitCandidates ?? 0, 'Current window', '▣'),
+    metricCard('Permit Value', compactMoney(permitValue), 'Listed value', '$'),
+    metricCard('Data Confidence', `${Math.round(((s.gisMatches || 0) / Math.max(s.gisLookups || 1, 1)) * 100)}%`, 'GIS match rate', '◇')
   ].join('');
   document.getElementById('sourceHealth').innerHTML = (data.health || []).map(sourceRow).join('') || '<p>No source health available.</p>';
   document.getElementById('properties').innerHTML = (data.properties || []).slice(0, 12).map(propertyCard).join('') || '<p class="empty">No property intelligence records generated yet.</p>';
@@ -238,24 +236,23 @@ function renderData(data) {
   document.getElementById('qaMetrics').innerHTML = qaRows(s);
   state.data = data;
   state.opportunities = data.opportunities || [];
+  state.selectedId = null;
   renderOpportunities();
 }
 async function loadData() {
-  document.getElementById('metrics').innerHTML = metric('Status', 'Loading');
+  document.getElementById('metrics').innerHTML = metricCard('Status', 'Loading', 'Reading generated data');
   try {
     const res = await fetch(`data/opportunities.json?ts=${Date.now()}`);
     if (!res.ok) throw new Error(`Data file not found (${res.status})`);
     renderData(await res.json());
   } catch (err) {
-    document.getElementById('metrics').innerHTML = metric('Status', 'No Data');
+    document.getElementById('metrics').innerHTML = metricCard('Status', 'No Data', 'Run GitHub Actions');
     document.getElementById('briefLine').textContent = 'Run GitHub Actions → Update Intelligence, then refresh this page.';
-    document.getElementById('sourceHealth').innerHTML = `<p class="empty">${err.message}</p>`;
     document.getElementById('opportunities').innerHTML = '<p class="empty">Run GitHub Actions → Update Intelligence, then refresh this page.</p>';
-    document.getElementById('properties').innerHTML = '';
-    document.getElementById('organizations').innerHTML = '';
-    document.getElementById('qaMetrics').innerHTML = '';
+    document.getElementById('propertyDetail').innerHTML = '<div class="empty-detail">No data loaded.</div>';
   }
 }
 document.getElementById('refreshBtn').addEventListener('click', loadData);
-['searchInput','sortSelect','categoryFilter','scoreFilter'].forEach(id => document.getElementById(id)?.addEventListener('input', renderOpportunities));
+document.getElementById('filterToggle').addEventListener('click', () => document.getElementById('filterRow').classList.toggle('open'));
+['searchInput','sortSelect','categoryFilter','scoreFilter','heatFilter'].forEach(id => document.getElementById(id)?.addEventListener('input', renderOpportunities));
 loadData();

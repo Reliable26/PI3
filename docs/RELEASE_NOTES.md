@@ -1,31 +1,17 @@
-# Reliable Intel v0.9.3 Alpha Release Notes
-
-## Focus
-Improve formatting, ordering, filtering, and pilot usability without changing the underlying connector engine.
+# v0.9.4 Alpha - Workspace Layout + Source Links
 
 ## Added
-- Executive intelligence header.
-- Left-side navigation shell.
-- Sort controls for Today's Opportunities.
-- Filters for category and minimum score.
-- Search across property, address, owner, contractor, parcel, permit, source, and services.
-- Opportunity rank numbering.
-- Heat-level visual indicator.
-- Relevant services strip on opportunity cards.
-- Chronological permit timeline sorted newest first.
-- Chronological property timeline sorted newest first.
-- Collapsed Source Health panel.
-- Collapsed Intelligence QA panel.
+- Full workspace layout inspired by approved rendering.
+- Left navigation shell with no product branding.
+- Today's Top Properties list.
+- Property map panel with heat-coded markers.
+- Property Intelligence Record side panel.
+- Sort, filter, and search controls.
+- Permit source links now point to ArcGIS JSON/PJSON source records.
 
 ## Preserved
-- Current GitHub Actions workflow.
-- Existing data files and connector output structure.
-- Fire filtering.
 - Mecklenburg permit connector.
+- Fire connector.
 - Permit clustering.
-- GIS enrichment.
-- Property Intelligence Records.
-- Organization Resolver.
-
-## Notes
-This release does not add new data sources. It improves how the existing intelligence is presented and navigated for pilot usage.
+- GIS parcel enrichment.
+- Property, signal, evidence, and organization JSON outputs.
