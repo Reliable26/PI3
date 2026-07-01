@@ -1,16 +1,19 @@
-# PI v0.2.1 - Property Resolution Preview
+# PI v0.2.2 Release Notes
 
 ## Added
-- First property-name extraction for fire/news headlines.
-- Duplicate grouping by resolved property name or headline.
-- Needs Verification status for unresolved properties.
-- Google News RSS fire/commercial signal validation.
-- Source aggregation for duplicate stories.
+- 72-hour emergency article recency filter.
+- Published date display on every opportunity card.
+- PI detected date display.
+- Source health counts for stale items excluded.
+- Duplicate grouping by property/category/date.
+- First Property Intelligence Record IDs.
+- Source evidence section with clickable links.
 
-## Fixed
-- Removed JSON import assertions for Node 24 compatibility.
-- Generated intelligence is deployed as Pages artifact only and not committed back to Git.
+## Improved
+- Commercial fire classification.
+- Residential/noise filtering.
+- Score breakdown transparency.
 
-## Known Limits
-- Property addresses, owners, and management companies are not yet resolved from official property records.
-- Permit Intelligence remains in research status.
+## Known Limitations
+- Property address/owner/management verification is not yet connected to county records.
+- Google News is used as the current validated public feed. Official fire/permit data integrations remain future modules.

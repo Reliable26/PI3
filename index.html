@@ -1,3 +1,39 @@
-<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>PI</title><style>
-:root{--bg:#f3f6fa;--ink:#07152b;--muted:#667085;--line:#d9e2ef;--card:#fff;--blue:#1266dc;--green:#027a48;--amber:#b54708;--red:#b42318}*{box-sizing:border-box}body{margin:0;font-family:Arial,Helvetica,sans-serif;background:var(--bg);color:var(--ink)}header{height:48px;background:#0c1729;display:flex;justify-content:flex-end;align-items:center;padding:0 18px;gap:10px;box-shadow:0 2px 8px #0002}.btn{background:#15233a;border:1px solid #34465f;color:white;padding:10px 16px;border-radius:7px;font-weight:700;cursor:pointer}.btn.primary{background:var(--blue)}main{max-width:1260px;margin:32px auto;padding:0 18px}.statusbar{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:18px}.pill{background:#eef4fb;border:1px solid var(--line);padding:9px 14px;border-radius:20px;color:#22314f}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:18px}.card{background:var(--card);border:1px solid var(--line);border-radius:12px;box-shadow:0 1px 5px #0001}.metric{padding:22px}.label{color:var(--muted);font-size:14px;margin-bottom:12px}.value{font-size:34px;font-weight:800}.layout{display:grid;grid-template-columns:2fr 1fr;gap:18px}.section h2{margin:0;padding:18px 20px;border-bottom:1px solid var(--line);font-size:22px}.subhead{color:var(--muted);font-size:14px;font-weight:400;float:right}.opp{padding:20px;border-bottom:1px solid var(--line)}.opp:last-child{border-bottom:none}.opp-title{font-size:18px;font-weight:800;margin-bottom:7px}.opp-top{display:flex;justify-content:space-between;gap:16px}.score{font-size:32px;font-weight:900}.tag{display:inline-block;background:#eaf2ff;color:#0b4ba5;border-radius:14px;padding:4px 9px;font-size:12px;font-weight:700;margin:2px}.tag.critical{background:#fee4e2;color:var(--red)}.tag.verify{background:#fff7e8;color:var(--amber)}.meta{color:var(--muted);font-size:14px;margin:5px 0 14px}.opp p{margin:10px 0;line-height:1.35}.health-row{display:flex;justify-content:space-between;padding:15px 18px;border-bottom:1px solid var(--line)}.pass{color:var(--green);font-weight:900}.research{color:var(--amber);font-weight:900}.empty{padding:20px;color:var(--muted)}a{color:#0b4ba5}@media(max-width:900px){.grid,.layout{grid-template-columns:1fr}header{justify-content:center}}
-</style></head><body><header><button class="btn primary" onclick="loadData()">Update Intelligence</button><button class="btn" onclick="window.print()">Print</button></header><main><div class="statusbar"><span class="pill" id="loaded">Loading...</span><span class="pill" id="events"></span><span class="pill" id="updated"></span></div><div class="grid"><div class="card metric"><div class="label">Today's Opportunities</div><div class="value" id="mOpp">0</div></div><div class="card metric"><div class="label">High Priority</div><div class="value" id="mHigh">0</div></div><div class="card metric"><div class="label">Sources Healthy</div><div class="value" id="mHealth">0/0</div></div><div class="card metric"><div class="label">Needs Verification</div><div class="value" id="mVerify">0</div></div></div><div class="layout"><section class="card section"><h2>Today's Top Opportunities <span class="subhead">Ranked by score and confidence</span></h2><div id="opps"></div></section><aside class="card section"><h2>Source Health</h2><div id="health"></div></aside></div></main><script src="app.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PI</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="shell">
+    <section class="hero">
+      <div>
+        <p class="eyebrow">Property Intelligence</p>
+        <h1>Today's Opportunities</h1>
+      </div>
+      <button id="refreshBtn">Update Intelligence</button>
+    </section>
+
+    <section class="metrics" id="metrics"></section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Source Health</h2>
+        <span id="lastUpdated">Not loaded</span>
+      </div>
+      <div id="sourceHealth" class="source-grid"></div>
+    </section>
+
+    <section class="panel">
+      <div class="panel-head">
+        <h2>Opportunity Feed</h2>
+        <span id="feedStatus"></span>
+      </div>
+      <div id="opportunities" class="cards"></div>
+    </section>
+  </main>
+  <script src="app.js"></script>
+</body>
+</html>

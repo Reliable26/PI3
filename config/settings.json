@@ -1,0 +1,20 @@
+{
+  "version": "0.2.2",
+  "territoryName": "Charlotte Metro",
+  "emergencyMaxAgeHours": 72,
+  "standardMaxArticleAgeDays": 14,
+  "googleNewsQueries": [
+    "Charlotte NC apartment fire when:3d",
+    "Charlotte NC commercial building fire when:3d",
+    "Mecklenburg County apartment fire when:3d",
+    "Charlotte NC hotel fire when:3d",
+    "Charlotte NC warehouse fire when:3d",
+    "Charlotte NC office fire when:3d"
+  ],
+  "targetCounties": ["Mecklenburg", "Cabarrus", "Gaston", "Union", "Iredell", "York", "Lancaster"],
+  "excludeTerms": [
+    "single-family", "single family", "house fire", "home fire", "mobile home",
+    "vehicle fire", "car fire", "brush fire", "woods fire", "grass fire",
+    "dumpster fire", "trash fire", "shed fire", "garage fire"
+  ]
+}

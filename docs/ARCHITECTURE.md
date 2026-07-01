@@ -1,3 +1,6 @@
 # Architecture
 
-GitHub Pages frontend. GitHub Actions runs intelligence updates and deploys generated data as a Pages artifact. Generated JSON is not committed to Git.
+PI uses GitHub Actions to generate static JSON data during deployment. Generated data is deployed to GitHub Pages but is not committed back to Git.
+
+Current pipeline:
+Google News RSS -> Classifier -> Recency Filter -> Grouping -> Opportunity Builder -> Static Dashboard
