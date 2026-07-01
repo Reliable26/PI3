@@ -1,17 +1,17 @@
-# PI v0.2.3 - Permit Intelligence Preview
+# Release Notes - PI v0.2.4 PERM-001
 
 ## Added
-- Permit Intelligence preview module.
-- Commercial permit / capital improvement Google News signal queries.
-- Permit source connectivity validation for Charlotte and Mecklenburg public permit pages.
-- Permit classification for roofing, building envelope, waterproofing, exterior renovation, commercial alteration, tenant improvement, fire repair, water damage, and structural repair.
-- Emergency vs Capital Improvement dashboard counts.
+- Official Mecklenburg Building Permits ArcGIS FeatureServer connector.
+- Permit classification for Roofing, Waterproofing, Building Envelope, Exterior Renovation, Commercial Alteration, Fire Restoration, Water Damage, Structural Repair, and Capital Improvement.
+- Capital Improvement opportunity class.
+- Permit source-health reporting.
+- Permit records retrieved dashboard metric.
 
-## Important Limitation
-This release validates permit-intelligence flow and source connectivity. It does not yet scrape Accela permit records directly. Production permit extraction will require a source-specific parser after access validation.
+## Preserved
+- Previous dashboard format.
+- Fire Intelligence pipeline.
+- Strict territory filter for news/fire results.
+- Source links and published dates.
 
-## Fixed / Preserved
-- Keeps strict territory filtering.
-- Keeps previous dashboard format.
-- Keeps publication dates and source links.
-- Does not commit generated data back to Git.
+## Notes
+This connector validates the official ArcGIS permit layer first. If records are stale or not detailed enough, the next step is to connect the Daily Building Permits Issued report or another structured source.

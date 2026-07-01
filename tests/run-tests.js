@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { classifyFire, classifyPermit, extractPropertyName, isInsideTargetTerritory } = require('../scripts/update-intelligence.js');
+const { classifyFire, extractPropertyName, isInsideTargetTerritory, classifyPermit, normalizePermitFeature } = require('../scripts/update-intelligence.js');
 
 assert.strictEqual(classifyFire('Fire damages Ashley Place Apartments in Charlotte').keep, true);
 assert.strictEqual(classifyFire('Fire damages Ashley Place Apartments in Charlotte').category, 'Multifamily Fire');
@@ -9,11 +9,10 @@ assert.strictEqual(extractPropertyName('Fire damages Ashley Place Apartments in 
 assert.strictEqual(isInsideTargetTerritory({ title: 'Apartment fire in Belgium leaves residents displaced', source: 'International News', description: 'Brussels Belgium' }), false);
 assert.strictEqual(isInsideTargetTerritory({ title: 'Fire damages Ashley Place Apartments in southeast Charlotte', source: 'Charlotte Observer', description: 'Charlotte NC' }), true);
 
-assert.strictEqual(classifyPermit('Charlotte commercial roof permit issued for SouthPark Office Center').keep, true);
-assert.strictEqual(classifyPermit('Charlotte commercial roof permit issued for SouthPark Office Center').category, 'Commercial Roof Permit');
-assert.strictEqual(classifyPermit('Mecklenburg County building envelope permit for University City Apartments').category, 'Building Envelope Permit');
-assert.strictEqual(classifyPermit('Single family residential pool permit issued in Charlotte').keep, false);
-assert.strictEqual(classifyPermit('Fence permit for home in Charlotte').keep, false);
-assert.strictEqual(isInsideTargetTerritory({ title: 'Charlotte commercial alteration permit issued', source: 'Google News', description: 'Mecklenburg County NC' }), true);
-
+assert.strictEqual(classifyPermit({ Descriptio: 'Commercial alteration roof replacement at office building', ProposedUs: 'COMM' }).keep, true);
+assert.strictEqual(classifyPermit({ Descriptio: 'Commercial alteration roof replacement at office building', ProposedUs: 'COMM' }).category, 'Roofing');
+assert.strictEqual(classifyPermit({ Descriptio: 'Single family deck addition', ProposedUs: 'RES' }).keep, false);
+const permit = normalizePermitFeature({ attributes: { CaseNumber: 'B123456', Descriptio: 'Commercial alteration exterior waterproofing', IssuedDate: 1764547200000, Address: '100 N TRYON ST', ProposedUs: 'COMM', Cost: 100000 } }, { name:'Mecklenburg Building Permits ArcGIS', sourceUrl:'https://example.com' });
+assert.strictEqual(permit.keep, true);
+assert.strictEqual(permit.category, 'Waterproofing');
 console.log('All tests passed.');
