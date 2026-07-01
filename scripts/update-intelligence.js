@@ -44,20 +44,63 @@ function cleanTitle(title='') {
   return title.replace(/\s+-\s+[^-]+$/,'').replace(/\s+/g,' ').trim();
 }
 
+const EVENT_PREFIXES = [
+  'fire damages', 'fire damaged', 'fire destroys', 'fire destroyed',
+  'fire breaks out at', 'fire reported at', 'fire at', 'blaze at',
+  'blaze damages', '2-alarm fire at', 'two-alarm fire at',
+  '3-alarm fire at', 'three-alarm fire at', 'commercial fire at',
+  'crews battle fire at', 'crews battle blaze at', 'apartment fire at',
+  'structure fire at', 'roof collapse at', 'explosion at'
+];
+
+function escapeRegex(value='') {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function removeEventPhrases(text='') {
+  let cleaned = text
+    .replace(/\s+-\s+[^-]+$/, '')
+    .replace(/[“”]/g, '"')
+    .replace(/[’]/g, "'")
+    .replace(/\s+/g, ' ')
+    .trim();
+  for (const phrase of EVENT_PREFIXES) {
+    cleaned = cleaned.replace(new RegExp(`^${escapeRegex(phrase)}\\s+`, 'i'), '');
+  }
+  cleaned = cleaned
+    .replace(/^\d+\s+(?:hurt|injured|displaced|rescued)\s+after\s+(?:crews\s+)?(?:battle\s+)?(?:a\s+)?(?:\d+-alarm|two-alarm|three-alarm)?\s*(?:apartment|commercial|structure)?\s*fire\s+(?:at|in|near)?\s*/i, '')
+    .replace(/^(?:after|following)\s+(?:a\s+)?(?:fire|blaze)\s+(?:at|near|in)\s+/i, '')
+    .trim();
+  return cleaned;
+}
+
+function cleanPropertyCandidate(candidate='') {
+  return candidate
+    .replace(/^\s*(?:at|near|in|inside|outside)\s+/i, '')
+    .replace(/\b(?:in|on|near|after|where|following|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|Monday)\b.*$/i, '')
+    .replace(/[,:;.!?]+$/g, '')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function extractPropertyName(title, description='') {
-  const text = `${cleanTitle(title)} ${description}`;
+  const cleanedTitle = removeEventPhrases(cleanTitle(title));
+  const text = `${cleanedTitle} ${description}`.replace(/\s+/g, ' ').trim();
+  const propertySuffix = '(?:Apartments|Apartment Homes|Apts\\.?|Townhomes|Commons|Village|Place|Pointe|Point|Crossing|Station|Lofts|Flats|Manor|Park|Square|Center|Centre|Hotel|Suites|Inn|Plaza|Mall|Warehouse|Distribution Center|Business Park|Office Park|School|Hospital|Medical Center)';
   const patterns = [
-    /([A-Z][A-Za-z0-9'&.\- ]{2,80}\s+(?:Apartments|Apartment Homes|Apts|Townhomes|Commons|Village|Place|Pointe|Point|Crossing|Station|Lofts|Flats|Manor|Park|Square|Center|Centre|Hotel|Suites|Inn|Plaza|Mall|Warehouse|Distribution Center|Business Park|Office Park|School|Hospital|Medical Center))/,
-    /at\s+([A-Z][A-Za-z0-9'&.\- ]{2,80})\s+(?:in|on|near|after|,|\.)/,
-    /damages?\s+([A-Z][A-Za-z0-9'&.\- ]{2,80})\s+(?:in|on|near|after|,|\.)/,
-    /fire\s+at\s+([A-Z][A-Za-z0-9'&.\- ]{2,80})\s+(?:in|on|near|after|,|\.)/
+    new RegExp(`([A-Z][A-Za-z0-9'&.\\- ]{1,80}\\s+${propertySuffix})`, 'i'),
+    /(?:at|near|inside)\s+([A-Z][A-Za-z0-9'&.\- ]{2,80})\s+(?:in|on|near|after|,|\.)/i,
+    /(?:damages?|destroyed?|hits?)\s+([A-Z][A-Za-z0-9'&.\- ]{2,80})\s+(?:in|on|near|after|,|\.)/i
   ];
-  for (const p of patterns) {
-    const m = text.match(p);
+  for (const pattern of patterns) {
+    const m = text.match(pattern);
     if (m && m[1]) {
-      return m[1].replace(/\b(on|in|near|after|where)$/i, '').trim();
+      const candidate = cleanPropertyCandidate(m[1]);
+      if (candidate.length >= 3) return candidate;
     }
   }
+  const fallback = cleanPropertyCandidate(cleanedTitle);
+  if (/\b(apartment|apartments|hotel|warehouse|office|school|hospital|center|centre|mall|plaza)\b/i.test(fallback)) return fallback;
   return '';
 }
 
