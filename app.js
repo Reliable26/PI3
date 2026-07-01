@@ -49,6 +49,9 @@ function opportunityLead(o) {
     const c = o.permitCluster;
     return `${c.permitCount || 0} permit${c.permitCount === 1 ? '' : 's'} totaling ${compactMoney(c.totalCost)} identified for this property.`;
   }
+  if ((o.opportunityClass || '').includes('Incident')) {
+    return `${o.category || 'Building condition incident'} identified from public sources.`;
+  }
   return o.whatChanged || `${o.category || 'Opportunity'} identified for this property.`;
 }
 function propertySubline(o) {
@@ -126,6 +129,7 @@ function verifiedBy(o) {
   const verifications = [];
   if (o.propertyResolution?.status) verifications.push('Mecklenburg GIS');
   if (o.permitCluster) verifications.push('Permit Database');
+  if ((o.opportunityClass || '').includes('Incident')) verifications.push('Public Incident Source');
   if ((o.sources || []).some(s => /news|observer|wcnc|wsoc|wbtv|google/i.test(`${s.name} ${s.url}`))) verifications.push('News / Public Records');
   if ((o.sources || []).length) verifications.push(`${o.sources.length} Evidence Source${o.sources.length === 1 ? '' : 's'}`);
   return [...new Set(verifications)].slice(0, 6);
@@ -164,6 +168,7 @@ function detailTabButton(tab, label) {
 }
 function renderOverviewTab(o, p, score, intelligenceScore) {
   return `<section class="pir-section"><h3>What Changed</h3><p>${esc(opportunityLead(o))}</p></section>
+    <section class="pir-section"><h3>What We Know</h3><p>${esc(o.whatChanged || opportunityLead(o))}</p></section>
     <section class="pir-section"><h3>Why This Matters</h3><p>${esc(o.whyThisMatters || '')}</p></section>
     <section class="pir-kpis compact-kpis">
       <div><span>Latest Activity</span><strong>${fmtDateTime(latestActivityDate(o))}</strong><small>${relativeAge(latestActivityDate(o))}</small></div>
@@ -274,6 +279,7 @@ function sourceRow(h) {
 function qaRows(summary={}) {
   const rows = [
     ['Permit Records Retrieved', summary.permitRecordsRetrieved ?? 0], ['Permit Candidates', summary.permitCandidates ?? 0],
+    ['Incident Records Retrieved', summary.incidentRecordsRetrieved ?? 0], ['Incident Candidates', summary.incidentCandidates ?? 0],
     ['Permit Address Clusters', summary.permitClusters ?? 0], ['GIS Parcel Matches', `${summary.gisMatches ?? 0}/${summary.gisLookups ?? 0}`],
     ['Properties Created/Updated', summary.properties ?? 0], ['Organizations Resolved', summary.organizations ?? 0],
     ['Signals Created', summary.signals ?? 0], ['Evidence Records', summary.evidence ?? 0],
@@ -287,14 +293,14 @@ function renderData(data) {
   const s = data.summary || {};
   const highPriority = (data.opportunities || []).filter(o => (o.ratings?.overall ?? 0) >= 90).length;
   const permitValue = (data.opportunities || []).reduce((sum, o) => sum + Number(o.permitCluster?.totalCost || 0), 0);
-  document.getElementById('briefLine').textContent = `${s.opportunities ?? 0} qualified properties identified from public records.`;
+  document.getElementById('briefLine').textContent = `${s.opportunities ?? 0} qualified properties identified from public records. ${s.incidentOpportunities || 0} incident/building-condition signals.`;
   document.getElementById('lastUpdated').textContent = `Updated ${fmtDateTime(data.generatedAt)}`;
   document.getElementById('sideStatus').textContent = 'Live';
   document.getElementById('sideUpdated').textContent = `Last update: ${relativeAge(data.generatedAt) || fmtDateTime(data.generatedAt)}`;
   document.getElementById('metrics').innerHTML = [
     metricCard("Today's Properties", s.opportunities ?? 0, 'New or updated', '▦'),
     metricCard('High Priority', highPriority, 'Score 90+', '⚑'),
-    metricCard('Active Permits', s.permitCandidates ?? 0, 'Current window', '▣'),
+    metricCard('Active Permits', s.permitCandidates ?? 0, `${s.incidentOpportunities || 0} incident signals`, '▣'),
     metricCard('Permit Value', compactMoney(permitValue), 'Listed value', '$'),
     metricCard('Data Confidence', `${Math.round(((s.gisMatches || 0) / Math.max(s.gisLookups || 1, 1)) * 100)}%`, 'GIS match rate', '◇')
   ].join('');

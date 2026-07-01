@@ -163,6 +163,89 @@ function classifyFire(title, description='') {
   return { keep:false, category:'Not Fire', reason:'No fire signal' };
 }
 
+
+function isGenericIncidentNoise(item) {
+  const text = `${item.title || ''} ${item.description || ''} ${item.source || ''}`;
+  return (settings.incidentGenericExcludeTerms || []).some(term => containsPhrase(text, term));
+}
+
+function classifyIncident(title='', description='') {
+  const raw = `${title} ${description}`;
+  const text = normalizeText(raw);
+  if (settings.excludeTerms.some(t => text.includes(normalizeText(t)))) return { keep:false, category:'Excluded', reason:'Excluded residential/noise term' };
+  if ((settings.incidentGenericExcludeTerms || []).some(t => text.includes(normalizeText(t)))) return { keep:false, category:'Generic Mold/Advice Content', reason:'Generic advice/blog content' };
+  const hasActiveSignal = (settings.incidentActiveTerms || []).some(t => text.includes(normalizeText(t)));
+  const hasPropertySignal = (settings.incidentPropertyTerms || []).some(t => text.includes(normalizeText(t)));
+  if (!hasActiveSignal) return { keep:false, category:'No Active Building Condition Signal', reason:'No active incident/closure/remediation signal' };
+  if (!hasPropertySignal) return { keep:false, category:'No Commercial Property Signal', reason:'Incident not tied to target property type' };
+
+  const checks = [
+    ['Mold / Building Closure', ['closed due to mold','closure due to mold','mold closure','fire station closed','school closed','building closed','facility closed','displaced due to mold','mold remediation','mold found','mold discovered','mold growth']],
+    ['Water Intrusion / Water Damage', ['water intrusion','water damage','pipe burst','sprinkler discharge','flooding damage','sewage backup']],
+    ['Structural Damage / Collapse', ['ceiling collapse','roof collapse','structural damage','unsafe building','condemned']],
+    ['Emergency Displacement', ['evacuated','building evacuated','operations displaced','temporarily relocated','displaced']]
+  ];
+  for (const [category, terms] of checks) {
+    if (terms.some(t => text.includes(normalizeText(t)))) return { keep:true, category, reason:`Matched ${category}` };
+  }
+  return { keep:true, category:'Building Condition Incident', reason:'Matched active building-condition incident' };
+}
+
+function incidentServices(category='') {
+  const c = normalizeText(category);
+  if (c.includes('mold')) return ['Mold remediation','Water intrusion investigation','Containment','Interior build back','Commercial reconstruction','Annual property documentation'];
+  if (c.includes('water')) return ['Water mitigation','Leak investigation','Water intrusion inspection','Drying','Interior build back','Commercial reconstruction'];
+  if (c.includes('structural') || c.includes('collapse')) return ['Emergency response','Exterior repairs','Building envelope','Commercial reconstruction','Interior build back','Safety stabilization'];
+  return ['Emergency response','Commercial reconstruction','Interior build back','Water mitigation','Mold remediation','Annual property documentation'];
+}
+
+function buildIncidentOpportunity(group) {
+  const sorted = group.items.sort((a,b) => new Date(b.publishedAt) - new Date(a.publishedAt));
+  const lead = sorted[0];
+  const ageHours = hoursBetween(new Date(lead.publishedAt), new Date());
+  const propertyName = lead.propertyName || 'Property Requires Verification';
+  const sources = sorted.map(item => ({
+    name: item.source || extractSourceFromTitle(item.title),
+    title: cleanTitle(item.title),
+    url: item.link,
+    publishedAt: item.publishedAt
+  }));
+  const temp = { propertyName, category: 'Commercial Structure Fire', sources };
+  const scores = calculateScores(temp, ageHours, sources.length);
+  scores.opportunity = Math.min(100, scores.opportunity + 8);
+  scores.impact = Math.min(100, scores.impact + 12);
+  scores.overall = Math.min(100, Math.round(scores.overall + 8));
+  const id = `PI-${new Date().getUTCFullYear()}-${hash(`incident|${propertyName}|${lead.category}|${lead.publishedAt}`).toUpperCase()}`;
+  return {
+    id,
+    propertyId: `PIR-${hash(propertyName || lead.groupKey).toUpperCase()}`,
+    propertyName,
+    propertyStatus: propertyName === 'Property Requires Verification' ? 'Needs Verification' : 'Extracted - Needs Property Verification',
+    county: 'Mecklenburg / Charlotte Metro',
+    territory: settings.territoryName,
+    category: lead.category,
+    opportunityClass: 'Emergency / Incident',
+    eventDate: lead.publishedAt,
+    publishedDate: lead.publishedAt,
+    piDetectedDate: nowIso(),
+    lastVerifiedDate: nowIso(),
+    ratings: scores,
+    whatChanged: cleanTitle(lead.title),
+    whyNow: 'This is a recent public building-condition signal inside the Charlotte metro monitoring window. Active closures, displacement, mold, water intrusion, or structural issues can create time-sensitive service needs before a permit is issued.',
+    whyThisMatters: 'Public building-condition incidents can indicate active remediation, mitigation, containment, investigation, reconstruction, and documentation needs. These signals are especially valuable because they may appear before construction permits or formal project announcements.',
+    recommendedServices: incidentServices(lead.category),
+    evidenceCount: sources.length,
+    sources,
+    signalBreakdown: [
+      { label: lead.category, points: 35 },
+      { label: 'Active building-condition signal', points: 20 },
+      { label: 'Recent public source', points: ageHours <= 72 ? 15 : 8 },
+      { label: 'Property type / facility signal', points: 10 },
+      { label: 'Supporting sources', points: sources.length > 1 ? 10 : 0 }
+    ].filter(x => x.points > 0)
+  };
+}
+
 function calculateScores(record, articleAgeHours, sourceCount) {
   const base = scoring.base[record.category] || 20;
   let opportunity = base;
@@ -630,6 +713,38 @@ function buildFirePropertyRecord(opportunity) {
   };
 }
 
+
+function buildIncidentPropertyRecord(opportunity) {
+  const propertyId = opportunity.propertyId || `PIR-${hash(opportunity.propertyName || opportunity.id).toUpperCase()}`;
+  const managers = detectWatchlistOrganizations([opportunity.propertyName, opportunity.whatChanged, opportunity.whyThisMatters].join(' '));
+  const text = normalizeText(`${opportunity.propertyName || ''} ${opportunity.whatChanged || ''} ${opportunity.whyThisMatters || ''}`);
+  let propertyType = 'Commercial / Needs Classification';
+  if (text.includes('fire station') || text.includes('city ') || text.includes('county ') || text.includes('government')) propertyType = 'Government / Public Facility';
+  else if (text.includes('school') || text.includes('college') || text.includes('university')) propertyType = 'Education';
+  else if (text.includes('apartment') || text.includes('multifamily')) propertyType = 'Multifamily';
+  else if (text.includes('hotel') || text.includes('inn') || text.includes('suites')) propertyType = 'Hospitality';
+  else if (text.includes('hospital') || text.includes('medical')) propertyType = 'Healthcare';
+  return {
+    propertyId,
+    parcelId: '',
+    propertyName: opportunity.propertyName,
+    address: '',
+    county: opportunity.county || 'Mecklenburg / Charlotte Metro',
+    territory: opportunity.territory || settings.territoryName,
+    propertyType,
+    owner: null,
+    management: managers.length ? { organizationId: organizationId(managers[0], 'Management Company'), name: managers[0], confidence: 0.7, source: 'Text match' } : null,
+    currentHeatScore: opportunity.ratings?.overall || 0,
+    latestSignal: opportunity.category,
+    latestSignalDate: opportunity.eventDate,
+    evidenceCount: opportunity.evidenceCount || 0,
+    signals: ['INCIDENT'],
+    timelines: [{ date: opportunity.eventDate, type: 'Incident', label: opportunity.category, description: opportunity.whatChanged, source: opportunity.sources?.[0]?.name || 'Public Source', url: opportunity.sources?.[0]?.url || '' }],
+    dataQuality: { identity: opportunity.propertyName === 'Property Requires Verification' ? 35 : 62, ownership: 0, management: managers.length ? 70 : 0, evidence: Math.min(100, (opportunity.evidenceCount || 0) * 25), overall: opportunity.propertyName === 'Property Requires Verification' ? 28 : 48 },
+    updatedAt: nowIso()
+  };
+}
+
 function mergeTimeline(a = [], b = []) {
   const map = new Map();
   for (const item of [...a, ...b]) {
@@ -849,6 +964,19 @@ async function main() {
     }
   }
 
+
+  const incidentRaw = [];
+  for (const query of (settings.incidentNewsQueries || [])) {
+    try {
+      const feed = await fetchFeed(query);
+      const items = feed.ok ? parseRss(feed.text) : [];
+      incidentRaw.push(...items.map(x => ({ ...x, query, module: 'Incident / Building Condition Intelligence' })));
+      health.push({ source:'Google News RSS', module:'Incident / Building Condition Intelligence', query, status: feed.ok ? 'pass' : 'fail', httpStatus: feed.status, durationMs: feed.durationMs, itemsRetrieved: items.length });
+    } catch (err) {
+      health.push({ source:'Google News RSS', module:'Incident / Building Condition Intelligence', query, status:'fail', error: err.message, itemsRetrieved:0 });
+    }
+  }
+
   const seenLinks = new Set();
   const candidates = [];
   const now = new Date();
@@ -874,6 +1002,35 @@ async function main() {
       classificationReason: cls.reason,
       propertyName: propertyName || '',
       opportunityClass: 'Emergency',
+      groupKey: `${slug(propertyName || cleanTitle(item.title).slice(0,80))}|${cls.category}|${pub.toISOString().slice(0,10)}`
+    });
+  }
+
+
+  const incidentSeenLinks = new Set(seenLinks);
+  const incidentCandidates = [];
+  let incidentOldExcluded = 0, incidentExcluded = 0, incidentOutOfTerritoryExcluded = 0, incidentDuplicateExcluded = 0;
+  for (const item of incidentRaw) {
+    if (!item.link || incidentSeenLinks.has(item.link)) { incidentDuplicateExcluded++; continue; }
+    incidentSeenLinks.add(item.link);
+    const pub = item.pubDate ? new Date(item.pubDate) : null;
+    if (!pub || Number.isNaN(pub.getTime())) { incidentOldExcluded++; continue; }
+    const ageDays = hoursBetween(pub, now) / 24;
+    if (ageDays > (settings.incidentMaxAgeDays || settings.standardMaxArticleAgeDays || 14)) { incidentOldExcluded++; continue; }
+    if (!isInsideTargetTerritory(item)) { incidentOutOfTerritoryExcluded++; continue; }
+    const cls = classifyIncident(item.title, item.description);
+    if (!cls.keep) { incidentExcluded++; continue; }
+    const propertyName = extractPropertyName(item.title, item.description) || cleanPropertyCandidate(removeEventPhrases(cleanTitle(item.title)));
+    incidentCandidates.push({
+      title: item.title,
+      description: item.description,
+      link: item.link,
+      source: item.source || extractSourceFromTitle(item.title),
+      publishedAt: pub.toISOString(),
+      category: cls.category,
+      classificationReason: cls.reason,
+      propertyName: propertyName || '',
+      opportunityClass: 'Emergency / Incident',
       groupKey: `${slug(propertyName || cleanTitle(item.title).slice(0,80))}|${cls.category}|${pub.toISOString().slice(0,10)}`
     });
   }
@@ -906,16 +1063,23 @@ async function main() {
     groups.get(key).items.push(item);
   }
   const fireOpportunities = [...groups.values()].map(buildOpportunity);
+  const incidentGroups = new Map();
+  for (const item of incidentCandidates) {
+    const key = item.groupKey;
+    if (!incidentGroups.has(key)) incidentGroups.set(key, { key, items: [] });
+    incidentGroups.get(key).items.push(item);
+  }
+  const incidentOpportunities = [...incidentGroups.values()].map(buildIncidentOpportunity);
   const permitClusters = clusterPermitRecords(permitCandidates);
   let permitOpportunities = permitClusters.map(buildPermitClusterOpportunity);
   const gisEnrichment = await enrichPermitOpportunitiesWithGis(permitOpportunities, health);
   permitOpportunities = gisEnrichment.opportunities;
-  const opportunities = [...fireOpportunities, ...permitOpportunities].sort((a,b) => b.ratings.overall - a.ratings.overall);
-  const properties = dedupeProperties(opportunities.map(o => o.opportunityClass === 'Capital Improvement' ? buildPermitPropertyRecord(o) : buildFirePropertyRecord(o)));
+  const opportunities = [...fireOpportunities, ...incidentOpportunities, ...permitOpportunities].sort((a,b) => b.ratings.overall - a.ratings.overall);
+  const properties = dedupeProperties(opportunities.map(o => o.opportunityClass === 'Capital Improvement' ? buildPermitPropertyRecord(o) : (o.opportunityClass === 'Emergency / Incident' ? buildIncidentPropertyRecord(o) : buildFirePropertyRecord(o))));
   const organizations = collectOrganizationsFromOpportunities(opportunities);
   const signals = opportunities.flatMap(o => {
     const evidenceIds = (o.sources || []).map(s => buildEvidence({ source: s.name, url: s.url, title: s.title, publishedAt: s.publishedAt }).evidenceId);
-    return [buildSignal({ propertyId: o.propertyId, type: o.opportunityClass === 'Capital Improvement' ? 'PERMIT' : 'FIRE', category: o.category, source: o.sources?.[0]?.name || 'Public Source', date: o.eventDate, confidence: (o.ratings?.confidence || 0) / 100, impact: (o.ratings?.impact || 0) / 100, evidenceIds, metadata: { opportunityId: o.id } })];
+    return [buildSignal({ propertyId: o.propertyId, type: o.opportunityClass === 'Capital Improvement' ? 'PERMIT' : (o.opportunityClass === 'Emergency / Incident' ? 'INCIDENT' : 'FIRE'), category: o.category, source: o.sources?.[0]?.name || 'Public Source', date: o.eventDate, confidence: (o.ratings?.confidence || 0) / 100, impact: (o.ratings?.impact || 0) / 100, evidenceIds, metadata: { opportunityId: o.id } })];
   });
   const evidence = opportunities.flatMap(o => (o.sources || []).map(s => buildEvidence({ source: s.name, url: s.url, title: s.title, publishedAt: s.publishedAt })));
   const byClass = opportunities.reduce((acc, o) => { acc[o.opportunityClass] = (acc[o.opportunityClass] || 0) + 1; return acc; }, {});
@@ -924,10 +1088,11 @@ async function main() {
     version: settings.version,
     territory: settings.territoryName,
     summary: {
-      rawItemsRetrieved: raw.length + permitRaw,
-      candidates: candidates.length + permitCandidates.length,
+      rawItemsRetrieved: raw.length + incidentRaw.length + permitRaw,
+      candidates: candidates.length + incidentCandidates.length + permitCandidates.length,
       opportunities: opportunities.length,
       emergencyOpportunities: byClass.Emergency || 0,
+      incidentOpportunities: byClass['Emergency / Incident'] || 0,
       capitalImprovementOpportunities: byClass['Capital Improvement'] || 0,
       properties: properties.length,
       gisLookups: typeof gisEnrichment !== 'undefined' ? gisEnrichment.gisLookups : 0,
@@ -935,10 +1100,15 @@ async function main() {
       organizations: organizations.length,
       signals: signals.length,
       evidence: evidence.length,
-      oldItemsExcluded: oldExcluded,
-      nonCommercialExcluded,
-      outOfTerritoryExcluded,
-      duplicateRawExcluded,
+      oldItemsExcluded: oldExcluded + incidentOldExcluded,
+      nonCommercialExcluded: nonCommercialExcluded + incidentExcluded,
+      outOfTerritoryExcluded: outOfTerritoryExcluded + incidentOutOfTerritoryExcluded,
+      duplicateRawExcluded: duplicateRawExcluded + incidentDuplicateExcluded,
+      incidentRecordsRetrieved: incidentRaw.length,
+      incidentCandidates: incidentCandidates.length,
+      incidentExcluded,
+      incidentOldExcluded,
+      incidentOutOfTerritoryExcluded,
       duplicateGroupsMerged: candidates.length - fireOpportunities.length,
       permitRecordsRetrieved: permitRaw,
       permitCandidates: permitCandidates.length,
@@ -961,9 +1131,9 @@ async function main() {
   fs.writeFileSync(path.join(dataDir, 'signals.json'), JSON.stringify({ generatedAt: output.generatedAt, signals }, null, 2));
   fs.writeFileSync(path.join(dataDir, 'evidence.json'), JSON.stringify({ generatedAt: output.generatedAt, evidence }, null, 2));
   fs.writeFileSync(path.join(dataDir, 'source-health.json'), JSON.stringify({ generatedAt: output.generatedAt, health, summary: output.summary }, null, 2));
-  console.log(`PI update complete. Opportunities: ${opportunities.length}. Emergency: ${byClass.Emergency || 0}. Capital: ${byClass['Capital Improvement'] || 0}. Permit records: ${permitRaw}.`);
+  console.log(`PI update complete. Opportunities: ${opportunities.length}. Emergency: ${byClass.Emergency || 0}. Incidents: ${byClass['Emergency / Incident'] || 0}. Capital: ${byClass['Capital Improvement'] || 0}. Permit records: ${permitRaw}.`);
 }
 
 if (require.main === module) main().catch(err => { console.error(err); process.exit(1); });
 
-module.exports = { parseRss, classifyFire, extractPropertyName, isInsideTargetTerritory, buildOpportunity, classifyPermit, normalizePermitFeature, buildPermitOpportunity, buildPermitClusterOpportunity, clusterPermitRecords, normalizeAddressKey, parcelPropertyId, normalizeOrgName, organizationId, buildPermitPropertyRecord, dedupeProperties, buildGisParcelQueryUrl, permitSourceRecordUrl };
+module.exports = { parseRss, classifyFire, classifyIncident, extractPropertyName, isInsideTargetTerritory, buildOpportunity, buildIncidentOpportunity, classifyPermit, normalizePermitFeature, buildPermitOpportunity, buildPermitClusterOpportunity, clusterPermitRecords, normalizeAddressKey, parcelPropertyId, normalizeOrgName, organizationId, buildPermitPropertyRecord, dedupeProperties, buildGisParcelQueryUrl, permitSourceRecordUrl };
