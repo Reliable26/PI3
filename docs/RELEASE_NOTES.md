@@ -1,15 +1,20 @@
-# Release Notes
+# PI QE-001 Qualification Engine
 
-## v0.2.2b - Territory Filter
+## Added
+- Qualification Engine
+- Territory filter
+- Syndicated/world/national URL filter
+- Residential and excluded-sector filtering
+- Freshness filtering
+- Rejection diagnostics
+- Why It Qualified output
+- Opportunity Rating dimensions
 
-### Fixed
-- Excludes out-of-market articles such as international fire stories that Google News may return.
-- Adds target geography filtering for Charlotte Metro / Mecklenburg terms and trusted local sources.
-- Adds an `Out of Territory Excluded` metric to the dashboard.
+## Improved
+- Source health output
+- Evidence display
+- Duplicate grouping
 
-### Kept
-- 72-hour emergency recency filter.
-- Article published date.
-- PI detected date.
-- Clickable source links.
-- Property-name parser fix.
+## Known limitations
+- Property enrichment is not yet connected to county property records.
+- Permit Intelligence is pending source validation.

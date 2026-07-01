@@ -3,7 +3,7 @@ name: Update Intelligence
 on:
   workflow_dispatch:
   schedule:
-    - cron: '0 2 * * *'
+    - cron: '0 1 * * *' # 9:00 PM ET during EDT; acceptable for preview
 
 permissions:
   contents: read
@@ -12,14 +12,11 @@ permissions:
 
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   update-and-deploy:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -27,31 +24,27 @@ jobs:
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
-          node-version: 24
+          node-version: '24'
 
       - name: Run tests
         run: npm test
 
-      - name: Generate intelligence data
+      - name: Update intelligence
         run: npm run update
 
-      - name: Build static site
+      - name: Prepare Pages artifact
         run: |
           mkdir -p dist
           cp index.html dist/index.html
-          cp app.js dist/app.js
-          cp styles.css dist/styles.css
-          cp .nojekyll dist/.nojekyll
-          cp -R docs dist/docs || true
+          cp -R public/* dist/
 
-      - name: Setup Pages
+      - name: Configure Pages
         uses: actions/configure-pages@v5
 
-      - name: Upload artifact
+      - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v3
         with:
           path: dist
 
       - name: Deploy to GitHub Pages
-        id: deployment
         uses: actions/deploy-pages@v4

@@ -1,313 +1,82 @@
-const fs = require('fs');
-const path = require('path');
-const crypto = require('crypto');
+import fs from 'node:fs/promises';
+import { sources } from '../config/sources.js';
+import { groupOpportunities, stripHtml } from './pi-core.js';
 
-const root = path.resolve(__dirname, '..');
-const settings = JSON.parse(fs.readFileSync(path.join(root, 'config/settings.json'), 'utf8'));
-const scoring = JSON.parse(fs.readFileSync(path.join(root, 'config/scoring.json'), 'utf8'));
-
-function ensureDir(p) { fs.mkdirSync(p, { recursive: true }); }
-function nowIso() { return new Date().toISOString(); }
-function hoursBetween(a, b) { return Math.abs((b.getTime() - a.getTime()) / 36e5); }
-function escapeXml(s='') { return s.replace(/<!\[CDATA\[(.*?)\]\]>/gs, '$1').replace(/&amp;/g, '&').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>'); }
-function stripHtml(s='') { return s.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim(); }
-function slug(s='') { return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80); }
-function hash(s='') { return crypto.createHash('sha1').update(s).digest('hex').slice(0, 10); }
-
-function parseRss(xml) {
-  const itemRegex = /<item>([\s\S]*?)<\/item>/g;
-  const items = [];
-  let match;
-  while ((match = itemRegex.exec(xml))) {
-    const block = match[1];
-    const get = (tag) => {
-      const m = block.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, 'i'));
-      return m ? escapeXml(m[1]).trim() : '';
-    };
-    items.push({
-      title: stripHtml(get('title')),
-      link: stripHtml(get('link')),
-      pubDate: stripHtml(get('pubDate')),
-      source: stripHtml(get('source')) || extractSourceFromTitle(stripHtml(get('title'))),
-      description: stripHtml(get('description'))
-    });
-  }
-  return items;
+async function fetchText(url) {
+  const res = await fetch(url, { headers: { 'user-agent': 'PI/0.2.3 source validation' } });
+  if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
+  return res.text();
 }
 
-function extractSourceFromTitle(title='') {
-  const parts = title.split(' - ');
-  return parts.length > 1 ? parts[parts.length - 1].trim() : 'Google News';
+function extractTag(xml, tag) {
+  const m = xml.match(new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, 'i'));
+  return stripHtml(m?.[1] || '');
 }
 
-function normalizeText(value='') {
-  return String(value).toLowerCase().replace(/[^a-z0-9]+/g, ' ').replace(/\s+/g, ' ').trim();
-}
-
-function isLocalTrustedSource(source='') {
-  const src = normalizeText(source);
-  return (settings.localSourceTerms || []).some(term => src.includes(normalizeText(term)));
-}
-
-function isInsideTargetTerritory(item) {
-  const text = normalizeText(`${item.title || ''} ${item.description || ''} ${item.source || ''}`);
-  if ((settings.foreignExcludeTerms || []).some(term => text.includes(normalizeText(term)))) return false;
-  if ((settings.targetGeoTerms || []).some(term => text.includes(normalizeText(term)))) return true;
-  // Google News queries may include Charlotte, but if the article itself does not contain a local place/source signal,
-  // PI should not treat it as a Charlotte Metro opportunity.
-  return isLocalTrustedSource(item.source || extractSourceFromTitle(item.title || ''));
-}
-
-function cleanTitle(title='') {
-  return title.replace(/\s+-\s+[^-]+$/,'').replace(/\s+/g,' ').trim();
-}
-
-const EVENT_PREFIXES = [
-  'fire damages', 'fire damaged', 'fire destroys', 'fire destroyed',
-  'fire breaks out at', 'fire reported at', 'fire at', 'blaze at',
-  'blaze damages', '2-alarm fire at', 'two-alarm fire at',
-  '3-alarm fire at', 'three-alarm fire at', 'commercial fire at',
-  'crews battle fire at', 'crews battle blaze at', 'apartment fire at',
-  'structure fire at', 'roof collapse at', 'explosion at'
-];
-
-function escapeRegex(value='') {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
-function removeEventPhrases(text='') {
-  let cleaned = text
-    .replace(/\s+-\s+[^-]+$/, '')
-    .replace(/[“”]/g, '"')
-    .replace(/[’]/g, "'")
-    .replace(/\s+/g, ' ')
-    .trim();
-  for (const phrase of EVENT_PREFIXES) {
-    cleaned = cleaned.replace(new RegExp(`^${escapeRegex(phrase)}\\s+`, 'i'), '');
-  }
-  cleaned = cleaned
-    .replace(/^\d+\s+(?:hurt|injured|displaced|rescued)\s+after\s+(?:crews\s+)?(?:battle\s+)?(?:a\s+)?(?:\d+-alarm|two-alarm|three-alarm)?\s*(?:apartment|commercial|structure)?\s*fire\s+(?:at|in|near)?\s*/i, '')
-    .replace(/^(?:after|following)\s+(?:a\s+)?(?:fire|blaze)\s+(?:at|near|in)\s+/i, '')
-    .trim();
-  return cleaned;
-}
-
-function cleanPropertyCandidate(candidate='') {
-  return candidate
-    .replace(/^\s*(?:at|near|in|inside|outside)\s+/i, '')
-    .replace(/\b(?:in|on|near|after|where|following|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|Monday)\b.*$/i, '')
-    .replace(/[,:;.!?]+$/g, '')
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function extractPropertyName(title, description='') {
-  const cleanedTitle = removeEventPhrases(cleanTitle(title));
-  const text = `${cleanedTitle} ${description}`.replace(/\s+/g, ' ').trim();
-  const propertySuffix = '(?:Apartments|Apartment Homes|Apts\\.?|Townhomes|Commons|Village|Place|Pointe|Point|Crossing|Station|Lofts|Flats|Manor|Park|Square|Center|Centre|Hotel|Suites|Inn|Plaza|Mall|Warehouse|Distribution Center|Business Park|Office Park|School|Hospital|Medical Center)';
-  const patterns = [
-    new RegExp(`([A-Z][A-Za-z0-9'&.\\- ]{1,80}\\s+${propertySuffix})`, 'i'),
-    /(?:at|near|inside)\s+([A-Z][A-Za-z0-9'&.\- ]{2,80})\s+(?:in|on|near|after|,|\.)/i,
-    /(?:damages?|destroyed?|hits?)\s+([A-Z][A-Za-z0-9'&.\- ]{2,80})\s+(?:in|on|near|after|,|\.)/i
-  ];
-  for (const pattern of patterns) {
-    const m = text.match(pattern);
-    if (m && m[1]) {
-      const candidate = cleanPropertyCandidate(m[1]);
-      if (candidate.length >= 3) return candidate;
-    }
-  }
-  const fallback = cleanPropertyCandidate(cleanedTitle);
-  if (/\b(apartment|apartments|hotel|warehouse|office|school|hospital|center|centre|mall|plaza)\b/i.test(fallback)) return fallback;
-  return '';
-}
-
-function classifyFire(title, description='') {
-  const text = `${title} ${description}`.toLowerCase();
-  if (settings.excludeTerms.some(t => text.includes(t))) return { keep:false, category:'Excluded', reason:'Excluded residential/noise term' };
-  const checks = [
-    ['Multifamily Fire', ['apartment', 'apartments', 'multifamily', 'senior living', 'assisted living']],
-    ['Hotel Fire', ['hotel', 'motel', 'inn', 'suites', 'extended stay']],
-    ['Industrial Fire', ['warehouse', 'industrial', 'distribution center', 'manufacturing']],
-    ['Office Fire', ['office building', 'office park']],
-    ['Retail Fire', ['shopping center', 'retail', 'mall', 'store', 'restaurant']],
-    ['Healthcare Fire', ['hospital', 'medical center', 'clinic', 'nursing']],
-    ['Education Fire', ['school', 'college', 'university']],
-    ['Commercial Structure Fire', ['commercial', 'business', 'structure fire', 'building fire']]
-  ];
-  for (const [category, terms] of checks) {
-    if (terms.some(t => text.includes(t))) return { keep:true, category, reason:`Matched ${category}` };
-  }
-  if (text.includes('fire')) return { keep:true, category:'Needs Verification', reason:'Fire-related article requires commercial verification' };
-  return { keep:false, category:'Not Fire', reason:'No fire signal' };
-}
-
-function calculateScores(record, articleAgeHours, sourceCount) {
-  const base = scoring.base[record.category] || 20;
-  let opportunity = base;
-  if (articleAgeHours <= 24) opportunity += scoring.bonuses.freshWithin24Hours;
-  else if (articleAgeHours <= 72) opportunity += scoring.bonuses.freshWithin72Hours;
-  if (sourceCount > 1) opportunity += scoring.bonuses.multipleSources;
-  if (record.propertyName && record.propertyName !== 'Property Requires Verification') opportunity += scoring.bonuses.resolvedPropertyName;
-  if (record.sources.some(s => s.url)) opportunity += scoring.bonuses.sourceLink;
-  if (record.sources.some(s => s.publishedAt)) opportunity += scoring.bonuses.articleDate;
-  opportunity = Math.min(100, opportunity);
-  const confidence = Math.min(99, 65 + (sourceCount * 8) + (record.propertyName !== 'Property Requires Verification' ? 12 : 0) + (record.sources.some(s => s.publishedAt) ? 6 : 0));
-  const freshness = Math.max(0, Math.round(100 - (articleAgeHours / 72) * 100));
-  const impact = Math.min(100, base * 2);
-  const coverage = record.propertyName !== 'Property Requires Verification' ? 55 : 25;
-  const signalStrength = Math.min(100, sourceCount * 25);
-  const overall = Math.round((opportunity * 0.35) + (confidence * 0.25) + (freshness * 0.2) + (impact * 0.15) + (coverage * 0.05));
-  return { overall, opportunity, confidence, freshness, impact, coverage, signalStrength };
-}
-
-function buildOpportunity(group) {
-  const sorted = group.items.sort((a,b) => new Date(b.publishedAt) - new Date(a.publishedAt));
-  const lead = sorted[0];
-  const articleAgeHours = hoursBetween(new Date(lead.publishedAt), new Date());
-  const propertyName = lead.propertyName || 'Property Requires Verification';
-  const sources = sorted.map(item => ({
-    name: item.source || extractSourceFromTitle(item.title),
-    title: cleanTitle(item.title),
-    url: item.link,
-    publishedAt: item.publishedAt
+function parseGoogleNewsRss(xml, sourceConfig) {
+  const itemBlocks = xml.match(/<item>[\s\S]*?<\/item>/gi) || [];
+  return itemBlocks.map(item => ({
+    title: extractTag(item, 'title'),
+    description: extractTag(item, 'description'),
+    link: extractTag(item, 'link'),
+    publishedAt: extractTag(item, 'pubDate'),
+    source: sourceConfig.id,
+    module: sourceConfig.module
   }));
-  const temp = { propertyName, category: lead.category, sources };
-  const scores = calculateScores(temp, articleAgeHours, sources.length);
-  const id = `PI-${new Date().getUTCFullYear()}-${hash(`${propertyName}|${lead.category}|${lead.publishedAt}`).toUpperCase()}`;
-  return {
-    id,
-    propertyId: `PIR-${hash(propertyName || lead.groupKey).toUpperCase()}`,
-    propertyName,
-    propertyStatus: propertyName === 'Property Requires Verification' ? 'Needs Verification' : 'Extracted - Needs Property Verification',
-    county: 'Mecklenburg / Charlotte Metro',
-    territory: settings.territoryName,
-    category: lead.category,
-    opportunityClass: 'Emergency',
-    eventDate: lead.publishedAt,
-    publishedDate: lead.publishedAt,
-    piDetectedDate: nowIso(),
-    lastVerifiedDate: nowIso(),
-    ratings: scores,
-    whatChanged: cleanTitle(lead.title),
-    whyNow: 'This is a recent fire-related public signal inside the Charlotte metro monitoring window. Emergency events are time-sensitive and should be reviewed quickly.',
-    whyThisMatters: 'Commercial and multifamily fire events can create needs for emergency stabilization, smoke remediation, water mitigation from fire suppression, demolition, drying, and reconstruction.',
-    recommendedServices: [
-      'Emergency response',
-      'Fire restoration',
-      'Smoke remediation',
-      'Water mitigation',
-      'Commercial reconstruction',
-      'Annual property documentation after restoration'
-    ],
-    evidenceCount: sources.length,
-    sources,
-    signalBreakdown: [
-      { label: lead.category, points: scoring.base[lead.category] || 20 },
-      { label: 'Recent emergency article', points: articleAgeHours <= 24 ? 15 : 10 },
-      { label: 'Supporting sources', points: sources.length > 1 ? 10 : 0 },
-      { label: 'Property name extracted', points: propertyName !== 'Property Requires Verification' ? 8 : 0 }
-    ].filter(x => x.points > 0)
-  };
-}
-
-async function fetchFeed(query) {
-  const url = `https://news.google.com/rss/search?q=${encodeURIComponent(query)}&hl=en-US&gl=US&ceid=US:en`;
-  const started = Date.now();
-  const res = await fetch(url, { headers: { 'user-agent': 'Mozilla/5.0 PI/0.2.2' } });
-  const text = await res.text();
-  return { query, url, status: res.status, ok: res.ok, durationMs: Date.now() - started, text };
 }
 
 async function main() {
-  const runStarted = nowIso();
-  const raw = [];
-  const health = [];
-  for (const query of settings.googleNewsQueries) {
+  const now = new Date();
+  const allRecords = [];
+  const sourceHealth = [];
+  for (const source of sources) {
+    const started = Date.now();
     try {
-      const feed = await fetchFeed(query);
-      const items = feed.ok ? parseRss(feed.text) : [];
-      raw.push(...items.map(x => ({ ...x, query })));
-      health.push({ source:'Google News RSS', query, status: feed.ok ? 'pass' : 'fail', httpStatus: feed.status, durationMs: feed.durationMs, itemsRetrieved: items.length });
+      const xml = await fetchText(source.url);
+      const records = parseGoogleNewsRss(xml, source);
+      allRecords.push(...records);
+      sourceHealth.push({
+        id: source.id,
+        module: source.module,
+        status: 'PASS',
+        recordsRetrieved: records.length,
+        durationMs: Date.now() - started,
+        lastRun: now.toISOString()
+      });
     } catch (err) {
-      health.push({ source:'Google News RSS', query, status:'fail', error: err.message, itemsRetrieved:0 });
+      sourceHealth.push({
+        id: source.id,
+        module: source.module,
+        status: 'WARN',
+        recordsRetrieved: 0,
+        durationMs: Date.now() - started,
+        error: err.message,
+        lastRun: now.toISOString()
+      });
     }
   }
-
-  const seenLinks = new Set();
-  const candidates = [];
-  const now = new Date();
-  let oldExcluded = 0, nonCommercialExcluded = 0, duplicateRawExcluded = 0, outOfTerritoryExcluded = 0;
-  for (const item of raw) {
-    if (!item.link || seenLinks.has(item.link)) { duplicateRawExcluded++; continue; }
-    seenLinks.add(item.link);
-    const pub = item.pubDate ? new Date(item.pubDate) : null;
-    if (!pub || Number.isNaN(pub.getTime())) { oldExcluded++; continue; }
-    const ageHours = hoursBetween(pub, now);
-    if (ageHours > settings.emergencyMaxAgeHours) { oldExcluded++; continue; }
-    if (!isInsideTargetTerritory(item)) { outOfTerritoryExcluded++; continue; }
-    const cls = classifyFire(item.title, item.description);
-    if (!cls.keep) { nonCommercialExcluded++; continue; }
-    const propertyName = extractPropertyName(item.title, item.description);
-    candidates.push({
-      title: item.title,
-      description: item.description,
-      link: item.link,
-      source: item.source || extractSourceFromTitle(item.title),
-      publishedAt: pub.toISOString(),
-      category: cls.category,
-      classificationReason: cls.reason,
-      propertyName: propertyName || '',
-      groupKey: `${slug(propertyName || cleanTitle(item.title).slice(0,80))}|${cls.category}|${pub.toISOString().slice(0,10)}`
-    });
-  }
-
-  const groups = new Map();
-  for (const item of candidates) {
-    const key = item.groupKey;
-    if (!groups.has(key)) groups.set(key, { key, items: [] });
-    groups.get(key).items.push(item);
-  }
-  const opportunities = [...groups.values()].map(buildOpportunity).sort((a,b) => b.ratings.overall - a.ratings.overall);
-  const properties = opportunities.map(o => ({
-    propertyId: o.propertyId,
-    propertyName: o.propertyName,
-    status: o.propertyStatus,
-    territory: o.territory,
-    county: o.county,
-    latestSignal: o.category,
-    latestSignalDate: o.eventDate,
-    evidenceCount: o.evidenceCount,
-    confidence: o.ratings.confidence,
-    sources: o.sources
-  }));
-  const output = {
-    generatedAt: nowIso(),
-    version: settings.version,
-    territory: settings.territoryName,
+  const { opportunities, rejected } = groupOpportunities(allRecords, now);
+  const rejectedCounts = rejected.reduce((acc, item) => {
+    for (const r of item.reasons) acc[r] = (acc[r] || 0) + 1;
+    return acc;
+  }, {});
+  const data = {
+    generatedAt: now.toISOString(),
+    version: '0.2.3-qe001',
     summary: {
-      rawItemsRetrieved: raw.length,
-      candidates: candidates.length,
-      opportunities: opportunities.length,
-      properties: properties.length,
-      oldItemsExcluded: oldExcluded,
-      nonCommercialExcluded,
-      outOfTerritoryExcluded,
-      duplicateRawExcluded,
-      duplicateGroupsMerged: candidates.length - opportunities.length
+      recordsRetrieved: allRecords.length,
+      opportunitiesCreated: opportunities.length,
+      rejected: rejected.length,
+      rejectedCounts,
+      sourceCount: sources.length
     },
-    health,
+    sourceHealth,
     opportunities,
-    properties
+    rejectedSample: rejected.slice(0, 20)
   };
-  const dataDir = path.join(root, 'dist', 'data');
-  ensureDir(dataDir);
-  fs.writeFileSync(path.join(dataDir, 'opportunities.json'), JSON.stringify(output, null, 2));
-  fs.writeFileSync(path.join(dataDir, 'properties.json'), JSON.stringify({ generatedAt: output.generatedAt, properties }, null, 2));
-  fs.writeFileSync(path.join(dataDir, 'source-health.json'), JSON.stringify({ generatedAt: output.generatedAt, health, summary: output.summary }, null, 2));
-  console.log(`PI update complete. Opportunities: ${opportunities.length}. Old excluded: ${oldExcluded}. Out-of-territory excluded: ${outOfTerritoryExcluded}. Non-commercial excluded: ${nonCommercialExcluded}.`);
+  await fs.mkdir('public/data', { recursive: true });
+  await fs.writeFile('public/data/opportunities.json', JSON.stringify(data, null, 2));
+  console.log(`Generated ${opportunities.length} opportunities from ${allRecords.length} records. Rejected ${rejected.length}.`);
 }
 
-if (require.main === module) main().catch(err => { console.error(err); process.exit(1); });
-
-module.exports = { parseRss, classifyFire, extractPropertyName, isInsideTargetTerritory, buildOpportunity };
+main().catch(err => { console.error(err); process.exit(1); });

@@ -2,38 +2,69 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>PI</title>
-  <link rel="stylesheet" href="styles.css" />
+  <style>
+    body{font-family:Arial,Helvetica,sans-serif;margin:0;background:#f5f7fb;color:#172033}.top{display:flex;justify-content:flex-end;gap:12px;padding:18px 28px;background:#101827;color:white}.btn{background:#2563eb;color:white;border:0;border-radius:8px;padding:10px 14px;cursor:pointer}.wrap{max-width:1180px;margin:24px auto;padding:0 18px}.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}.card{background:white;border:1px solid #e5e7eb;border-radius:14px;padding:18px;box-shadow:0 1px 2px #0001}.metric{font-size:28px;font-weight:700}.muted{color:#64748b;font-size:13px}.section{margin-top:22px}.opp{border-left:5px solid #2563eb;margin-bottom:14px}.pill{display:inline-block;background:#eef2ff;color:#3730a3;padding:4px 8px;border-radius:999px;font-size:12px;margin-right:6px}.danger{background:#fee2e2;color:#991b1b}.ok{background:#dcfce7;color:#166534}.source{display:block;margin-top:5px}.breakdown{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:10px 0}.smallbox{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:8px;font-size:12px}.reject{font-size:13px;line-height:1.5}.empty{padding:25px;text-align:center;color:#64748b} @media(max-width:800px){.grid,.breakdown{grid-template-columns:1fr}.top{justify-content:center;flex-wrap:wrap}}
+  </style>
 </head>
 <body>
-  <main class="shell">
-    <section class="hero">
-      <div>
-        <p class="eyebrow">Property Intelligence</p>
-        <h1>Today's Opportunities</h1>
+  <div class="top"><button class="btn" onclick="loadData()">Update Intelligence</button></div>
+  <div class="wrap">
+    <div class="grid">
+      <div class="card"><div class="muted">Qualified Opportunities</div><div id="mOpp" class="metric">-</div></div>
+      <div class="card"><div class="muted">Records Retrieved</div><div id="mRecords" class="metric">-</div></div>
+      <div class="card"><div class="muted">Rejected</div><div id="mRejected" class="metric">-</div></div>
+      <div class="card"><div class="muted">Last Update</div><div id="mUpdated" class="metric" style="font-size:18px">-</div></div>
+    </div>
+    <div class="section card">
+      <h2>Today's Opportunities</h2>
+      <div id="opps" class="empty">Click Update Intelligence.</div>
+    </div>
+    <div class="section card">
+      <h2>Source Health</h2>
+      <div id="health"></div>
+    </div>
+    <div class="section card">
+      <h2>Qualification Diagnostics</h2>
+      <div id="rejects" class="reject"></div>
+    </div>
+  </div>
+<script>
+async function loadData(){
+  const res = await fetch('data/opportunities.json?ts=' + Date.now());
+  if(!res.ok){ document.getElementById('opps').innerHTML='No generated data found. Run the GitHub Action first.'; return; }
+  const data = await res.json();
+  document.getElementById('mOpp').textContent = data.summary?.opportunitiesCreated ?? 0;
+  document.getElementById('mRecords').textContent = data.summary?.recordsRetrieved ?? 0;
+  document.getElementById('mRejected').textContent = data.summary?.rejected ?? 0;
+  document.getElementById('mUpdated').textContent = data.generatedAt ? new Date(data.generatedAt).toLocaleString() : '-';
+  const opps = data.opportunities || [];
+  document.getElementById('opps').innerHTML = opps.length ? opps.map(o => `
+    <div class="card opp">
+      <div><span class="pill ok">${o.propertyStatus}</span><span class="pill">${o.category}</span><span class="pill">${o.signalStrength}</span></div>
+      <h3>${o.propertyName}</h3>
+      <div class="muted">${o.propertyType} · Published ${new Date(o.publishedDate).toLocaleString()} · Detected ${new Date(o.detectedDate).toLocaleString()}</div>
+      <div class="breakdown">
+        <div class="smallbox"><b>${o.overallRating}</b><br>Overall</div>
+        <div class="smallbox"><b>${o.rating.confidence}</b><br>Confidence</div>
+        <div class="smallbox"><b>${o.rating.freshness}</b><br>Freshness</div>
+        <div class="smallbox"><b>${o.rating.impact}</b><br>Impact</div>
+        <div class="smallbox"><b>${o.rating.coverage}</b><br>Coverage</div>
       </div>
-      <button id="refreshBtn">Update Intelligence</button>
-    </section>
-
-    <section class="metrics" id="metrics"></section>
-
-    <section class="panel">
-      <div class="panel-head">
-        <h2>Source Health</h2>
-        <span id="lastUpdated">Not loaded</span>
-      </div>
-      <div id="sourceHealth" class="source-grid"></div>
-    </section>
-
-    <section class="panel">
-      <div class="panel-head">
-        <h2>Opportunity Feed</h2>
-        <span id="feedStatus"></span>
-      </div>
-      <div id="opportunities" class="cards"></div>
-    </section>
-  </main>
-  <script src="app.js"></script>
+      <p><b>What changed:</b> ${o.whatChanged}</p>
+      <p><b>Why now:</b> ${o.whyNow}</p>
+      <p><b>Why this matters:</b> ${o.whyThisMatters}</p>
+      <p><b>Recommended services:</b> ${o.recommendedServices.join(', ')}</p>
+      <p><b>Why it qualified:</b> ${o.whyQualified.join(' · ')}</p>
+      <p><b>Evidence:</b> ${o.evidenceCount} source(s)</p>
+      ${o.sources.map(s => `<a class="source" href="${s.url}" target="_blank">${s.title} — ${new Date(s.publishedAt).toLocaleDateString()}</a>`).join('')}
+    </div>`).join('') : '<div class="empty">No qualified opportunities found. Check diagnostics below.</div>';
+  document.getElementById('health').innerHTML = (data.sourceHealth || []).map(h => `<div>${h.status === 'PASS' ? '✅' : '⚠️'} <b>${h.module}</b> / ${h.id}: ${h.recordsRetrieved} records, ${h.durationMs} ms ${h.error ? '- ' + h.error : ''}</div>`).join('');
+  const counts = data.summary?.rejectedCounts || {};
+  document.getElementById('rejects').innerHTML = Object.keys(counts).length ? Object.entries(counts).map(([k,v]) => `<div><b>${v}</b> — ${k}</div>`).join('') : 'No rejected records.';
+}
+loadData();
+</script>
 </body>
 </html>
