@@ -17,3 +17,8 @@
 ## Important limitation
 
 This is public-web indexed social/agency intelligence, not authenticated direct social scraping. It should be used as early supporting intelligence and verified through linked public evidence.
+
+
+# v0.9.11 Alpha - Full Queue Map Parity
+
+Fixed the mismatch where the list showed only 10 records while the map showed the full filtered result count. The opportunity list now renders all matching records so the map and list count are aligned.

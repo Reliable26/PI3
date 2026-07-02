@@ -113,14 +113,14 @@ function opportunityListItem(o, rank) {
 }
 function renderOpportunities() {
   const items = filteredSortedOpportunities();
-  const visible = items.slice(0, 10);
+  const visible = items;
   if (state.selectedId && !items.some(o => o.id === state.selectedId)) {
     state.selectedId = null;
     state.selectedTab = 'overview';
   }
-  document.getElementById('feedStatus').textContent = `Showing ${Math.min(items.length, 10)} of ${items.length} matching properties`;
+  document.getElementById('feedStatus').textContent = `Showing all ${items.length} matching properties`; 
   const mapStatus = document.getElementById('mapStatus');
-  if (mapStatus) mapStatus.textContent = `Map showing ${items.length} matching properties`;
+  if (mapStatus) mapStatus.textContent = `Map showing the same ${items.length} properties in the list`; 
   document.getElementById('opportunities').innerHTML = visible.map((o,i) => opportunityListItem(o, i + 1)).join('') || '<p class="empty">No properties match the current filters.</p>';
   document.querySelectorAll('.opp-row').forEach(btn => btn.addEventListener('click', () => selectOpportunity(btn.dataset.id)));
   wireDetailInteractions();

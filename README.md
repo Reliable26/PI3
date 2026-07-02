@@ -13,3 +13,10 @@ Root-ready GitHub Pages build.
 ## Install
 
 Copy all files into the repository root, commit, push, then run the Update Intelligence workflow.
+
+
+## v0.9.11
+- Removed the top-10 display cap from the opportunity queue.
+- The list now shows every matching opportunity that the map is counting.
+- Updated map label so it confirms the map is using the same property set as the list.
+- Clarified that current map markers represent ranked property records in the UI and should not be treated as exact GIS pins unless coordinates are available.
