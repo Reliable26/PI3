@@ -1,4 +1,4 @@
-# Reliable Intel Product Specification
+# Commercial Property Intelligence Product Specification
 
 ## Mission
 Identify commercial properties that are changing before competitors do using verified public information.
@@ -7,7 +7,7 @@ Identify commercial properties that are changing before competitors do using ver
 The Property Intelligence Record is the primary object. Permits, fires, ownership changes, planning activity, news, contractors, and evidence attach to a property.
 
 ## Not a CRM
-Reliable Intel does not manage contacts, tasks, notes, opportunities, estimates, or projects. It identifies and explains prospecting intelligence.
+Commercial Property Intelligence does not manage contacts, tasks, notes, opportunities, estimates, or projects. It identifies and explains prospecting intelligence.
 
 ## Minimum Opportunity Standard
 Every opportunity must include public evidence, a date, a source link, a property or address, a score, and a reason it appears.

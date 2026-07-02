@@ -471,7 +471,7 @@ function classifyPermit(attrs) {
   const residentialOnly = ['single family','sfd','duplex','townhome','townhouse','deck','pool','shed','detached garage'];
   if (residentialOnly.some(t => text.includes(normalizeText(t)))) return { keep:false, category:'Residential/Unknown Permit', reason:'Residential-only permit signal' };
   const hasCommercial = commercialHints.some(t => text.includes(normalizeText(t))) || /\b(com|bus|off|ret|ind|apt|hot|med|edu)\b/i.test(rawText);
-  if (!hasTarget) return { keep:false, category:'Non-target Permit', reason:'No Reliable service-related permit keyword' };
+  if (!hasTarget) return { keep:false, category:'Non-target Permit', reason:'No target service-related permit keyword' };
   if (!hasCommercial) return { keep:false, category:'Residential/Unknown Permit', reason:'No commercial property signal' };
   const catChecks = [
     ['Waterproofing', ['waterproof','waterproofing']],
@@ -641,7 +641,7 @@ function buildProjectSpecificWhy(items=[], category='Capital Improvement', addre
   const clusterSentence = count > 1 ? ` Because ${count} permits are grouped at the same property, this may indicate a coordinated work program rather than a one-off repair.` : '';
 
   if (f.fire || category === 'Fire Restoration') {
-    return `This record points to fire or smoke-related repair activity at ${address}.${scope} Reliable Restorations should review the opportunity for fire restoration, smoke cleaning, water mitigation from suppression efforts, demolition, reconstruction, and commercial build-back.${valueSentence}${clusterSentence}`;
+    return `This record points to fire or smoke-related repair activity at ${address}.${scope} Relevant service lines may include fire restoration, smoke cleaning, water mitigation from suppression efforts, demolition, reconstruction, and commercial build-back.${valueSentence}${clusterSentence}`;
   }
   if (f.water || category === 'Water Damage') {
     return `This record points to water, mold, leak, or plumbing-related building work at ${address}.${scope} That creates a direct reason to discuss water mitigation, mold remediation, leak investigation, water intrusion investigation, drying, and interior build-back.${valueSentence}${clusterSentence}`;
@@ -650,27 +650,27 @@ function buildProjectSpecificWhy(items=[], category='Capital Improvement', addre
     return `This permit appears tied to roofing or roof-related repair activity at ${address}.${scope} That creates a direct opening to discuss roofing, leak investigation, water intrusion prevention, flashing details, building envelope repairs, and annual roof condition documentation.${valueSentence}${clusterSentence}`;
   }
   if (f.waterproofing || category === 'Waterproofing') {
-    return `This permit indicates waterproofing or leak-prevention work at ${address}.${scope} Reliable Restorations should evaluate whether the property may also need water intrusion investigation, sealant/joint work, envelope repairs, and preventative documentation before the next rain event exposes additional failures.${valueSentence}${clusterSentence}`;
+    return `This permit indicates waterproofing or leak-prevention work at ${address}.${scope} Relevant service lines may include water intrusion investigation, sealant/joint work, envelope repairs, and preventative documentation before the next rain event exposes additional failures.${valueSentence}${clusterSentence}`;
   }
   if (f.exterior || category === 'Building Envelope' || category === 'Exterior Renovation') {
-    return `This permit points to exterior or building-envelope work at ${address}.${scope} Exterior scopes often uncover related needs around siding, windows, doors, paint, sealants, water intrusion, and hidden substrate damage, making this a strong reason for Reliable Restorations to discuss envelope assessment and exterior repair support.${valueSentence}${clusterSentence}`;
+    return `This permit points to exterior or building-envelope work at ${address}.${scope} Exterior scopes often uncover related needs around siding, windows, doors, paint, sealants, water intrusion, and hidden substrate damage, making this a strong reason to evaluate envelope assessment and exterior repair support.${valueSentence}${clusterSentence}`;
   }
   if (f.structural || category === 'Structural Repair') {
-    return `This record indicates structural repair activity at ${address}.${scope} Structural work can expose adjacent reconstruction, envelope, framing, drywall, flooring, and safety-related repair needs that Reliable Restorations can support during or after the permitted scope.${valueSentence}${clusterSentence}`;
+    return `This record indicates structural repair activity at ${address}.${scope} Structural work can expose adjacent reconstruction, envelope, framing, drywall, flooring, and safety-related repair needs that may require support during or after the permitted scope.${valueSentence}${clusterSentence}`;
   }
   if (f.amenity) {
     return `This permit appears connected to amenity or common-area improvements at ${address}.${scope} Amenity work can create opportunities for interior build-back, flooring, painting, drywall, exterior repairs, and future capital-improvement support across the property.${valueSentence}${clusterSentence}`;
   }
   if (f.interior || category === 'Commercial Alteration') {
-    return `This commercial alteration permit indicates active interior or tenant-improvement work at ${address}.${scope} Reliable Restorations should evaluate whether the scope creates openings for drywall, flooring, painting, interior build-back, reconstruction support, and related capital improvement work.${valueSentence}${clusterSentence}`;
+    return `This commercial alteration permit indicates active interior or tenant-improvement work at ${address}.${scope} Relevant service lines may include drywall, flooring, painting, interior build-back, reconstruction support, and related capital improvement work.${valueSentence}${clusterSentence}`;
   }
   if (f.multifamily) {
     return `This multifamily permit activity at ${address} may point to unit, common-area, or building-system improvements.${scope} Multifamily properties often expand from one permitted scope into related interior repairs, envelope reviews, leak investigations, and annual documentation needs.${valueSentence}${clusterSentence}`;
   }
   if (f.government) {
-    return `This permit activity appears tied to a public building at ${address}.${scope} Public building work can create continuity, remediation, reconstruction, and documentation needs where Reliable Restorations can support repairs without becoming a CRM or project tracker.${valueSentence}${clusterSentence}`;
+    return `This permit activity appears tied to a public building at ${address}.${scope} Public building work can create continuity, remediation, reconstruction, and documentation needs where continuity, remediation, reconstruction, and documentation needs may exist.${valueSentence}${clusterSentence}`;
   }
-  return `This official permit activity at ${address} indicates current capital work or repair planning.${scope} Reliable Restorations should review the property for connected needs such as building envelope repairs, leak investigation, water intrusion prevention, commercial reconstruction, interior build-back, and annual property documentation.${valueSentence}${clusterSentence}`;
+  return `This official permit activity at ${address} indicates current capital work or repair planning.${scope} Relevant service lines may include building envelope repairs, leak investigation, water intrusion prevention, commercial reconstruction, interior build-back, and annual property documentation.${valueSentence}${clusterSentence}`;
 }
 
 function clusterScores(cluster) {
@@ -1106,7 +1106,7 @@ function buildGisParcelQueryUrl(source, parcelId) {
 async function fetchGisParcel(source, parcelId) {
   const url = buildGisParcelQueryUrl(source, parcelId);
   const started = Date.now();
-  const res = await fetch(url, { headers: { 'user-agent': 'Mozilla/5.0 ReliableIntel/0.9.1' } });
+  const res = await fetch(url, { headers: { 'user-agent': 'Mozilla/5.0 CommercialPropertyIntelligence/0.9.14' } });
   const text = await res.text();
   let json = null;
   try { json = JSON.parse(text); } catch (_) {}

@@ -1,13 +1,16 @@
-# v0.9.13 Alpha - Permit Scope Exclusion
+# v0.9.14 Alpha - Zero Branding Scrub
 
 ## Fixed
-- Excludes temporary/festival/event permit scopes from the opportunity queue.
-- Blocks festival stages, temporary tents, booths, amusement rides, event permits, signs/banners, generators, food trucks, and related non-building scopes.
-- Keeps legitimate commercial alteration, roofing, envelope, waterproofing, fire/water damage, structural, interior, and capital improvement permits.
+- Removed all company-specific name references from user-visible narratives.
+- Removed company-specific references from documentation and configuration.
+- Replaced service-language with generic "Relevant service lines" wording.
+- Changed generated narrative logic so no company name appears in Why This Matters text.
+- Updated public data base URL config to use a relative path instead of an account-specific URL.
 
-## Why
-Temporary event permits are technically building permits in the county dataset, but they are not target opportunities for commercial restoration, reconstruction, or capital improvement prospecting.
-
-## Validation
-- Added tests for Taste of Charlotte festival stage/no-review building permit exclusion.
-- Existing fire, incident, social, and commercial permit tests retained.
+## Preserved
+- Permit scope filter.
+- Project-specific narratives.
+- Source-aware permit links.
+- Inline property records.
+- Fire and incident intelligence logic.
+- Map/list behavior from prior build.

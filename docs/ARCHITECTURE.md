@@ -1,6 +1,6 @@
-# Reliable Intel Architecture
+# Commercial Property Intelligence Architecture
 
-Reliable Intel is property-first. Public records, permits, incidents, ownership activity, and news are converted into signals and attached to Property Intelligence Records.
+Commercial Property Intelligence is property-first. Public records, permits, incidents, ownership activity, and news are converted into signals and attached to Property Intelligence Records.
 
 ## Current Layers
 

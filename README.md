@@ -1,4 +1,4 @@
-# Commercial Property Intelligence v0.9.13 Alpha
+# Commercial Property Intelligence v0.9.14 Alpha
 
 Temporary event / festival permit filtering added.
 
@@ -26,5 +26,10 @@ Root-ready GitHub Pages build.
 Copy all files into the repository root, commit, push, then run the Update Intelligence workflow.
 
 
-## v0.9.13 Note
+## v0.9.14 Note
 This build adds permit scope exclusions for temporary/festival/event permits that should not appear as prospecting opportunities.
+
+
+## v0.9.14 Zero Branding Scrub
+
+This release removes company-specific references from generated narratives, documentation, configuration, headers, and source metadata. Public output remains generic and property-focused.

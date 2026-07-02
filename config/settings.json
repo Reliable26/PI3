@@ -214,7 +214,7 @@
     "mold",
     "structural"
   ],
-  "publicDataBaseUrl": "https://reliable26.github.io/PI3/data",
+  "publicDataBaseUrl": "./data",
   "organizationWatchlist": [
     {
       "canonical": "Bell Partners",
