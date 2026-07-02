@@ -97,6 +97,46 @@ function searchableText(o) {
   const p = findProperty(o.propertyId) || {};
   return [o.propertyName, p.address, p.parcelId, p.owner?.name, p.management?.name, o.category, o.territory, o.whatChanged, o.whyThisMatters, o.propertyResolution?.parcelId, o.permitCluster?.owner, ...(o.permitCluster?.permits || []).map(p => `${p.caseNumber} ${p.description} ${p.contractor} ${p.applicant}`), ...(o.sources || []).map(s => `${s.name} ${s.title}`), ...(o.recommendedServices || [])].filter(Boolean).join(' ').toLowerCase();
 }
+
+function ownerMatchedProperties(data = {}) {
+  const properties = data.properties || [];
+  return properties
+    .filter(p => p.owner?.name || p.permitSummary?.owner || p.ownershipValidation?.ownerName)
+    .sort((a,b) => String(a.propertyName || a.address || '').localeCompare(String(b.propertyName || b.address || '')));
+}
+function ownershipSourceLabel(p = {}) {
+  const status = p.ownershipValidation?.status || '';
+  if (/gis/i.test(status)) return 'GIS / Property Record';
+  if (p.owner?.source) return p.owner.source;
+  if (p.owner?.name) return 'Permit / GIS owner field';
+  return 'Ownership source';
+}
+function ownershipRows(data = {}) {
+  const rows = ownerMatchedProperties(data);
+  if (!rows.length) return '<p class="empty">No owner-enriched property records are available in this run.</p>';
+  return `<div class="owner-table"><div class="owner-table-head"><span>Property</span><span>Parcel</span><span>Owner</span><span>Source</span><span>Actions</span></div>${rows.map(p => {
+    const related = (state.opportunities || []).find(o => o.propertyId === p.propertyId);
+    const links = p.ownershipValidation?.officialSearches || [];
+    return `<div class="owner-row">
+      <span><strong>${esc(p.propertyName || p.address || 'Property')}</strong><small>${esc(p.address || '')}</small></span>
+      <span>${esc(p.parcelId || 'Pending')}</span>
+      <span>${esc(p.owner?.name || p.permitSummary?.owner || p.ownershipValidation?.ownerName || 'Owner data found')}</span>
+      <span>${esc(ownershipSourceLabel(p))}</span>
+      <span class="owner-actions">
+        ${related ? `<button type="button" class="mini-action open-property" data-id="${esc(related.id)}">Open Property</button>` : ''}
+        ${links[0]?.url ? `<a class="mini-action" href="${esc(links[0].url)}" target="_blank" rel="noopener">Verify</a>` : ''}
+      </span>
+    </div>`;
+  }).join('')}</div>`;
+}
+function wireOwnershipDrilldown() {
+  document.querySelectorAll('.open-property').forEach(btn => btn.addEventListener('click', () => {
+    const id = btn.dataset.id;
+    const row = document.querySelector(`.opp-row[data-id="${CSS.escape(id)}"]`);
+    selectOpportunity(id);
+    setTimeout(() => document.querySelector(`.opp-card[data-id="${CSS.escape(id)}"]`)?.scrollIntoView({behavior:'smooth', block:'center'}), 50);
+  }));
+}
 function filteredSortedOpportunities() {
   const q = document.getElementById('searchInput')?.value.toLowerCase().trim() || '';
   const sort = document.getElementById('sortSelect')?.value || 'score';
@@ -198,12 +238,22 @@ function detailTabButton(tab, label) {
   const active = state.selectedTab === tab ? ' active' : '';
   return `<button type="button" class="tab-btn${active}" data-tab="${tab}">${label}</button>`;
 }
+function ownershipSummaryBlock(p = {}) {
+  const ownerName = p.owner?.name || p.ownershipValidation?.currentOwner || '';
+  if (!ownerName && !p.ownershipValidation?.officialSearches?.length) return '';
+  return `<section class="pir-section ownership-brief"><h3>Ownership</h3><div class="ownership-brief-grid">
+    <div><span>Current Owner</span><strong>${esc(ownerName || 'Verification pending')}</strong></div>
+    <div><span>Source</span><strong>${esc(p.owner?.source || p.ownershipValidation?.source || 'Public ownership validation')}</strong></div>
+    <div><span>Confidence</span><strong>${esc(p.owner?.confidence ? `${Math.round(Number(p.owner.confidence) * 100)}%` : (ownerName ? 'Matched' : 'Pending'))}</strong></div>
+  </div></section>`;
+}
 function renderOverviewTab(o, p, score, intelligenceScore) {
   const projectDescription = o.projectDescription || o.whatChanged || opportunityLead(o);
   return `<section class="pir-section"><h3>What Changed</h3><p>${esc(opportunityLead(o))}</p></section>
     <section class="pir-section"><h3>Project Description</h3><p>${esc(projectDescription)}</p></section>
     <section class="pir-section"><h3>What We Know</h3><p>${esc(o.whatChanged || opportunityLead(o))}</p></section>
     <section class="pir-section"><h3>Why This Matters</h3><p>${esc(o.whyThisMatters || '')}</p></section>
+    ${ownershipSummaryBlock(p)}
     <section class="pir-kpis compact-kpis">
       <div><span>Latest Activity</span><strong>${fmtDateTime(latestActivityDate(o))}</strong><small>${relativeAge(latestActivityDate(o))}</small></div>
       <div><span>Sources</span><strong>${o.evidenceCount || 0}</strong><small>Verified</small></div>
@@ -229,7 +279,8 @@ function renderDetailsTab(o, p) {
     ['Permit Count', o.permitCluster?.permitCount || p.permitSummary?.permitCount || 0],
     ['Listed Permit Value', compactMoney(o.permitCluster?.totalCost || p.permitSummary?.totalCost || 0)]
   ];
-  return `<section class="pir-section"><h3>Property Details</h3><div class="detail-table">${rows.map(([k,v]) => `<div><span>${esc(k)}</span><strong>${esc(v)}</strong></div>`).join('')}</div></section>`;
+  const ownershipLinks = ownershipEvidenceLinks(p);
+  return `<section class="pir-section"><h3>Property Details</h3><div class="detail-table">${rows.map(([k,v]) => `<div><span>${esc(k)}</span><strong>${esc(v)}</strong></div>`).join('')}</div></section>${ownershipLinks}`;
 }
 function ownershipEvidenceLinks(p = {}) {
   const links = p.ownershipValidation?.officialSearches || [];
@@ -341,7 +392,28 @@ function qaRows(summary={}) {
     ['Old Items Excluded', (summary.oldItemsExcluded ?? 0) + (summary.permitOldExcluded ?? 0) + (summary.socialOldExcluded ?? 0)],
     ['Duplicates Removed', summary.duplicateRawExcluded ?? 0]
   ];
-  return rows.map(([k,v]) => `<div><span>${esc(k)}</span><strong>${esc(v)}</strong></div>`).join('');
+  return rows.map(([k,v]) => {
+    const isOwnershipMatch = k === 'Ownership Records Matched' || k === 'Properties With Owner Data';
+    return `<div class="${isOwnershipMatch ? 'qa-action' : ''}"><span>${esc(k)}</span><strong>${esc(v)}</strong>${isOwnershipMatch ? '<a href="#ownership-drilldown">View matched ownership records</a>' : ''}</div>`;
+  }).join('');
+}
+
+
+function ownershipDrilldownRows(data = {}) {
+  const matched = (data.properties || [])
+    .filter(p => p?.owner?.name || p?.ownershipValidation?.currentOwner)
+    .sort((a,b) => String(a.propertyName || a.address || '').localeCompare(String(b.propertyName || b.address || '')));
+  if (!matched.length) return `<div class="ownership-empty">No matched ownership records available in this run.</div>`;
+  return `<div class="ownership-drilldown" id="ownership-drilldown"><div class="ownership-drilldown-head"><h3>Matched Ownership Records</h3><small>${matched.length} property records with owner data</small></div><div class="ownership-table">
+    <div class="ownership-table-header"><span>Property</span><span>Parcel</span><span>Owner</span><span>Source</span><span>Verify</span></div>
+    ${matched.map(p => {
+      const ownerName = p.owner?.name || p.ownershipValidation?.currentOwner || 'Owner pending';
+      const source = p.owner?.source || p.ownershipValidation?.source || 'Public ownership source';
+      const searches = p.ownershipValidation?.officialSearches || [];
+      const verifyLinks = searches.length ? searches.slice(0, 2).map(link => `<a href="${esc(link.url)}" target="_blank" rel="noopener">${esc(link.shortLabel || link.label || 'Verify')}</a>`).join('') : '<span class="muted-text">No link</span>';
+      return `<div class="ownership-table-row"><span><strong>${esc(p.propertyName || p.address || 'Property')}</strong><small>${esc(p.address || '')}</small></span><span>${esc(p.parcelId || 'Pending')}</span><span>${esc(ownerName)}</span><span>${esc(source)}</span><span class="verify-links">${verifyLinks}</span></div>`;
+    }).join('')}
+  </div></div>`;
 }
 
 function renderOwnershipValidation(data) {
@@ -354,20 +426,23 @@ function renderOwnershipValidation(data) {
   const checked = s.ownershipSourcesChecked ?? validation.ownershipSourcesChecked ?? sources.length ?? 0;
   const reachable = s.ownershipSourcesReachable ?? validation.ownershipSourcesReachable ?? sources.filter(x => x.ok).length ?? 0;
   const propsChecked = s.ownershipRecordsChecked ?? (data.properties || []).length ?? 0;
-  const propsMatched = s.ownershipRecordsMatched ?? (data.properties || []).filter(p => p.owner?.name).length ?? 0;
+  const matchedRows = ownerMatchedProperties(data);
+  const propsMatched = s.ownershipRecordsMatched ?? matchedRows.length ?? 0;
   const searchLinks = s.ownershipSearchLinksAvailable ?? validation.parcelsWithManualLinks ?? 0;
   const mode = s.ownershipAutomationStatus || 'Validation only - automated deed extraction pending certification';
   if (statusEl) statusEl.textContent = `${reachable}/${checked} official ownership sources reachable • ${propsMatched}/${propsChecked} properties have owner data`;
   const cards = [
     ['Mode', 'Validation', 'No ownership-change opportunities are created until source automation is certified.'],
     ['Official Sources', `${reachable}/${checked}`, 'Register of Deeds / Property Card / POLARIS reachability'],
-    ['Owner Data', `${propsMatched}/${propsChecked}`, 'Owner values found from permit or GIS source fields'],
+    ['Owner Data', `${propsMatched}/${propsChecked}`, 'Owner values found from public owner fields'],
     ['Search Links', searchLinks, 'Official verification links attached to property records'],
     ['Ownership Changes', s.ownershipOpportunitiesCreated ?? 0, 'Pending Register of Deeds automation'],
     ['Status', mode, 'Displayed here so validation does not look invisible']
   ];
   const sourceRows = sources.length ? `<div class="ownership-source-list">${sources.map(src => `<a class="evidence-link" href="${esc(src.officialSearchUrl || src.url || '')}" target="_blank" rel="noopener"><strong>${esc(src.source || src.sourceId || 'Ownership Source')}</strong><span>${esc(src.ok ? 'Reachable' : 'Not reachable')}</span><small>${esc(src.notes || src.automationStatus || 'Source validation')}</small></a>`).join('')}</div>` : '';
-  el.innerHTML = cards.map(([label,value,sub]) => `<div class="ownership-card"><span>${esc(label)}</span><strong>${esc(value)}</strong><small>${esc(sub)}</small></div>`).join('') + sourceRows;
+  const matchedTable = `<details class="ownership-drilldown" open><summary><strong>Owner Data Found (${propsMatched})</strong><small>Click to inspect matched property owners</small></summary>${ownershipRows(data)}<p class="helper-note"><strong>Ownership matched</strong> means public owner data was found for the property. <strong>Ownership change</strong> means a deed/sale activity was detected; that is pending Register of Deeds automation.</p></details>`;
+  el.innerHTML = cards.map(([label,value,sub]) => `<div class="ownership-card"><span>${esc(label)}</span><strong>${esc(value)}</strong><small>${esc(sub)}</small></div>`).join('') + sourceRows + matchedTable;
+  wireOwnershipDrilldown();
 }
 
 function renderData(data) {

@@ -1,6 +1,6 @@
 # Commercial Property Intelligence
 
-Development build: v0.9.18 Alpha
+Development build: v0.9.19 Alpha
 
 ## Purpose
 
@@ -8,7 +8,7 @@ Property-first commercial intelligence platform for identifying public-record si
 
 ## Current build focus
 
-v0.9.18 adds Ownership source validation visibility.
+v0.9.19 adds Ownership source validation visibility.
 
 ## Install
 
