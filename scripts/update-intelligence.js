@@ -548,6 +548,124 @@ function dominantPermitCategory(items) {
   return items[0]?.category || 'Capital Improvement';
 }
 
+function compactDollars(value) {
+  const n = Number(value || 0);
+  if (!Number.isFinite(n) || n <= 0) return 'no listed value';
+  if (n >= 1000000) return `$${(n / 1000000).toFixed(1)}M`;
+  if (n >= 1000) return `$${Math.round(n / 1000)}K`;
+  return `$${Math.round(n)}`;
+}
+
+function cleanPermitDescription(text='') {
+  const raw = String(text || '').replace(/\s+/g, ' ').trim();
+  if (!raw) return '';
+  return raw
+    .replace(/\bundefined\b/ig, '')
+    .replace(/\bnull\b/ig, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .slice(0, 260);
+}
+
+function primaryPermitDescription(items=[]) {
+  const candidates = [];
+  for (const item of items) {
+    candidates.push(item.description, item.workDescription, item.projectName, item.existingUse, item.proposedUse);
+  }
+  const best = candidates.map(cleanPermitDescription).find(x => x && normalizeText(x) !== 'commercial alteration');
+  return best || cleanPermitDescription(items[0]?.description || items[0]?.category || 'Permit record');
+}
+
+function permitKeywordFlags(items=[]) {
+  const text = normalizeText(items.map(x => [x.category, x.description, x.workDescription, x.projectName, x.existingUse, x.proposedUse, x.address].filter(Boolean).join(' ')).join(' '));
+  return {
+    roofing: /\broof\b|reroof|re roof|tpo|epdm|membrane|shingle|flashing|gutter/.test(text),
+    exterior: /exterior|facade|fa ade|siding|stucco|eifs|window|windows|door|doors|paint|painting|carpentry|masonry|brick/.test(text),
+    waterproofing: /waterproof|waterproofing|sealant|caulk|joint|leak|water intrusion/.test(text),
+    fire: /fire damage|smoke|burn|sprinkler/.test(text),
+    water: /water damage|mold|pipe|plumbing|flood|water mitigation|water intrusion|leak/.test(text),
+    structural: /structural|foundation|beam|joist|collapse|shoring|framing/.test(text),
+    interior: /alteration|renovation|upfit|tenant improvement|buildout|build out|build back|interior|drywall|flooring|paint|ceiling|office|suite/.test(text),
+    amenity: /clubhouse|pool|fitness|leasing office|amenity|lobby|corridor|common area|community room/.test(text),
+    multifamily: /apartment|apartments|multifamily|multi family|multi-family|units|dwelling/.test(text),
+    hotel: /hotel|motel|inn|suite|extended stay/.test(text),
+    healthcare: /hospital|medical|clinic|nursing|assisted living|rehab/.test(text),
+    government: /city of charlotte|mecklenburg county|fire station|police|library|government|municipal/.test(text),
+    education: /school|college|university|education|classroom|campus/.test(text)
+  };
+}
+
+function projectSpecificServices(items=[], category='Capital Improvement') {
+  const f = permitKeywordFlags(items);
+  const services = [];
+  const add = (...x) => x.forEach(s => { if (s && !services.includes(s)) services.push(s); });
+  if (f.fire || category === 'Fire Restoration') add('Fire restoration','Smoke cleaning','Water mitigation','Commercial reconstruction','Interior build back');
+  if (f.water || category === 'Water Damage') add('Water mitigation','Mold remediation','Leak investigation','Water intrusion investigation','Interior build back');
+  if (f.roofing || category === 'Roofing') add('Roofing','Leak investigation','Water intrusion investigation','Building envelope assessment','Exterior repairs');
+  if (f.waterproofing || category === 'Waterproofing') add('Waterproofing','Leak investigation','Water intrusion investigation','Building envelope assessment');
+  if (f.exterior || category === 'Exterior Renovation' || category === 'Building Envelope') add('Building envelope','Exterior repairs','Windows','Doors','Siding','Exterior painting');
+  if (f.structural || category === 'Structural Repair') add('Structural repairs','Commercial reconstruction','Exterior repairs','Building condition assessment');
+  if (f.interior || category === 'Commercial Alteration') add('Commercial reconstruction','Interior build back','Drywall','Flooring','Interior painting');
+  if (f.amenity) add('Amenity renovations','Interior painting','Flooring','Commercial reconstruction');
+  add('Annual property documentation','Building condition assessment');
+  return services.slice(0, 12);
+}
+
+function buildProjectDescription(items=[], category='Capital Improvement', totalCost=0) {
+  const count = items.length;
+  const desc = primaryPermitDescription(items);
+  const cost = compactDollars(totalCost);
+  const permitNumbers = items.map(x => x.caseNumber).filter(Boolean).slice(0, 3).join(', ');
+  const pieces = [];
+  pieces.push(`${count} ${category.toLowerCase()} permit${count === 1 ? '' : 's'}`);
+  if (cost !== 'no listed value') pieces.push(`totaling ${cost}`);
+  if (desc) pieces.push(`Scope signal: ${desc}`);
+  if (permitNumbers) pieces.push(`Permit${items.length === 1 ? '' : 's'}: ${permitNumbers}${items.length > 3 ? ' +' + (items.length - 3) + ' more' : ''}`);
+  return pieces.join('. ') + '.';
+}
+
+function buildProjectSpecificWhy(items=[], category='Capital Improvement', address='the property', totalCost=0) {
+  const f = permitKeywordFlags(items);
+  const desc = primaryPermitDescription(items);
+  const cost = compactDollars(totalCost);
+  const count = items.length;
+  const scope = desc ? ` The public permit description references: "${desc}".` : '';
+  const valueSentence = cost !== 'no listed value' ? ` The listed permit value is ${cost}, which makes this more than a routine maintenance signal.` : '';
+  const clusterSentence = count > 1 ? ` Because ${count} permits are grouped at the same property, this may indicate a coordinated work program rather than a one-off repair.` : '';
+
+  if (f.fire || category === 'Fire Restoration') {
+    return `This record points to fire or smoke-related repair activity at ${address}.${scope} Reliable Restorations should review the opportunity for fire restoration, smoke cleaning, water mitigation from suppression efforts, demolition, reconstruction, and commercial build-back.${valueSentence}${clusterSentence}`;
+  }
+  if (f.water || category === 'Water Damage') {
+    return `This record points to water, mold, leak, or plumbing-related building work at ${address}.${scope} That creates a direct reason to discuss water mitigation, mold remediation, leak investigation, water intrusion investigation, drying, and interior build-back.${valueSentence}${clusterSentence}`;
+  }
+  if (f.roofing || category === 'Roofing') {
+    return `This permit appears tied to roofing or roof-related repair activity at ${address}.${scope} That creates a direct opening to discuss roofing, leak investigation, water intrusion prevention, flashing details, building envelope repairs, and annual roof condition documentation.${valueSentence}${clusterSentence}`;
+  }
+  if (f.waterproofing || category === 'Waterproofing') {
+    return `This permit indicates waterproofing or leak-prevention work at ${address}.${scope} Reliable Restorations should evaluate whether the property may also need water intrusion investigation, sealant/joint work, envelope repairs, and preventative documentation before the next rain event exposes additional failures.${valueSentence}${clusterSentence}`;
+  }
+  if (f.exterior || category === 'Building Envelope' || category === 'Exterior Renovation') {
+    return `This permit points to exterior or building-envelope work at ${address}.${scope} Exterior scopes often uncover related needs around siding, windows, doors, paint, sealants, water intrusion, and hidden substrate damage, making this a strong reason for Reliable Restorations to discuss envelope assessment and exterior repair support.${valueSentence}${clusterSentence}`;
+  }
+  if (f.structural || category === 'Structural Repair') {
+    return `This record indicates structural repair activity at ${address}.${scope} Structural work can expose adjacent reconstruction, envelope, framing, drywall, flooring, and safety-related repair needs that Reliable Restorations can support during or after the permitted scope.${valueSentence}${clusterSentence}`;
+  }
+  if (f.amenity) {
+    return `This permit appears connected to amenity or common-area improvements at ${address}.${scope} Amenity work can create opportunities for interior build-back, flooring, painting, drywall, exterior repairs, and future capital-improvement support across the property.${valueSentence}${clusterSentence}`;
+  }
+  if (f.interior || category === 'Commercial Alteration') {
+    return `This commercial alteration permit indicates active interior or tenant-improvement work at ${address}.${scope} Reliable Restorations should evaluate whether the scope creates openings for drywall, flooring, painting, interior build-back, reconstruction support, and related capital improvement work.${valueSentence}${clusterSentence}`;
+  }
+  if (f.multifamily) {
+    return `This multifamily permit activity at ${address} may point to unit, common-area, or building-system improvements.${scope} Multifamily properties often expand from one permitted scope into related interior repairs, envelope reviews, leak investigations, and annual documentation needs.${valueSentence}${clusterSentence}`;
+  }
+  if (f.government) {
+    return `This permit activity appears tied to a public building at ${address}.${scope} Public building work can create continuity, remediation, reconstruction, and documentation needs where Reliable Restorations can support repairs without becoming a CRM or project tracker.${valueSentence}${clusterSentence}`;
+  }
+  return `This official permit activity at ${address} indicates current capital work or repair planning.${scope} Reliable Restorations should review the property for connected needs such as building envelope repairs, leak investigation, water intrusion prevention, commercial reconstruction, interior build-back, and annual property documentation.${valueSentence}${clusterSentence}`;
+}
+
 function clusterScores(cluster) {
   const items = cluster.items;
   const category = dominantPermitCategory(items);
@@ -931,10 +1049,11 @@ function buildPermitClusterOpportunity(cluster) {
     piDetectedDate: nowIso(),
     lastVerifiedDate: nowIso(),
     ratings,
-    whatChanged: `${items.length} permit${items.length === 1 ? '' : 's'} found at ${address}. Primary signal: ${category}.`,
-    whyNow: 'Multiple or recent official permit records at the same address indicate active work at the property. This creates a timely reason to contact the property while capital work is being planned, permitted, or underway.',
-    whyThisMatters: 'Grouped permits are stronger than isolated permit records. A cluster can indicate a coordinated renovation, capital improvement cycle, or repair program where Reliable Restorations can discuss building envelope services, leak investigation, water intrusion prevention, reconstruction, interior build-back, and annual property documentation.',
-    recommendedServices: ['Leak investigation','Water intrusion inspection','Building envelope assessment','Commercial reconstruction','Interior build back','Exterior repairs','Annual property documentation'],
+    projectDescription: buildProjectDescription(items, category, totalCost),
+    whatChanged: buildProjectDescription(items, category, totalCost),
+    whyNow: items.length > 1 ? `${items.length} official permit records at the same address indicate active work that may be part of a coordinated repair, renovation, or capital-improvement program.` : `A recent official permit record indicates active work at this property while planning, procurement, or construction may still be underway.`,
+    whyThisMatters: buildProjectSpecificWhy(items, category, address, totalCost),
+    recommendedServices: projectSpecificServices(items, category),
     evidenceCount: items.length,
     sources: detailLinks,
     signalBreakdown: [

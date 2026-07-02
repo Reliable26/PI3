@@ -1,22 +1,22 @@
-# Commercial Property Intelligence v0.9.10
+# Commercial Property Intelligence v0.9.12
 
 Root-ready GitHub Pages build.
 
 ## This release
 
-- Adds Public Agency / Social Web Intelligence.
-- Keeps v0.9.9 collapsed queue behavior.
-- Keeps map count correction and fire 14-day safety net.
-- Treats social/public web results as supporting evidence unless they are from official public-agency sources.
-- Does not replace official permit, GIS, deed, or incident records.
+- Adds project-specific permit narratives.
+- Adds a visible Project Description section inside each expanded Property Intelligence Record.
+- Replaces generic permit-cluster language with explanations based on actual permit category, description, work signal, count, value, and property context.
+- Adjusts recommended services based on permit scope signals such as roofing, exterior, waterproofing, water damage, fire damage, structural repair, interior alteration, and amenity work.
+
+## Preserved
+
+- Full queue display instead of top-10 cap.
+- Inline property records.
+- Collapsed-by-default queue behavior.
+- Source-aware permit links and copy permit number buttons.
+- Public agency / social web intelligence layer.
 
 ## Install
 
 Copy all files into the repository root, commit, push, then run the Update Intelligence workflow.
-
-
-## v0.9.11
-- Removed the top-10 display cap from the opportunity queue.
-- The list now shows every matching opportunity that the map is counting.
-- Updated map label so it confirms the map is using the same property set as the list.
-- Clarified that current map markers represent ranked property records in the UI and should not be treated as exact GIS pins unless coordinates are available.

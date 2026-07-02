@@ -171,7 +171,9 @@ function detailTabButton(tab, label) {
   return `<button type="button" class="tab-btn${active}" data-tab="${tab}">${label}</button>`;
 }
 function renderOverviewTab(o, p, score, intelligenceScore) {
+  const projectDescription = o.projectDescription || o.whatChanged || opportunityLead(o);
   return `<section class="pir-section"><h3>What Changed</h3><p>${esc(opportunityLead(o))}</p></section>
+    <section class="pir-section"><h3>Project Description</h3><p>${esc(projectDescription)}</p></section>
     <section class="pir-section"><h3>What We Know</h3><p>${esc(o.whatChanged || opportunityLead(o))}</p></section>
     <section class="pir-section"><h3>Why This Matters</h3><p>${esc(o.whyThisMatters || '')}</p></section>
     <section class="pir-kpis compact-kpis">
