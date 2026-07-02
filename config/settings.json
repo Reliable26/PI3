@@ -1,5 +1,5 @@
 {
-  "version": "0.9.8-pilot-polish-incident-intelligence",
+  "version": "0.9.10-social-agency-intelligence",
   "territoryName": "Charlotte Metro",
   "emergencyMaxAgeHours": 72,
   "permitMaxAgeDays": 730,
@@ -10,7 +10,11 @@
     "\"Mecklenburg County\" \"apartment fire\" when:3d",
     "\"Charlotte\" \"hotel fire\" when:3d",
     "\"Charlotte\" \"warehouse fire\" when:3d",
-    "\"Charlotte\" \"office fire\" when:3d"
+    "\"Charlotte\" \"office fire\" when:3d",
+    "\"Charlotte\" \"fire\" \"apartments\" when:14d",
+    "\"Charlotte Fire Department\" \"apartment fire\" when:14d",
+    "\"Charlotte\" \"structure fire\" \"commercial\" when:14d",
+    "\"Mecklenburg County\" \"fire\" \"apartments\" when:14d"
   ],
   "gisSources": [
     {
@@ -378,5 +382,62 @@
     "homeowner",
     "household",
     "diy"
+  ],
+  "fireFallbackMaxAgeDays": 14,
+  "socialMaxAgeDays": 14,
+  "socialWebQueries": [
+    "\"Charlotte Fire Department\" (\"apartment fire\" OR \"structure fire\" OR \"commercial fire\") when:14d",
+    "\"Charlotte Fire Department\" (\"evacuated\" OR \"displaced\" OR \"sprinkler\" OR \"water flow\") when:14d",
+    "\"City of Charlotte\" (\"mold\" OR \"water intrusion\" OR \"building closed\" OR \"facility closed\") when:14d",
+    "\"Mecklenburg County\" (\"mold\" OR \"water damage\" OR \"building closed\" OR \"facility closed\") when:14d",
+    "\"Charlotte NC\" (\"Facebook\" OR \"Instagram\" OR \"X\" OR \"Twitter\") (\"apartment fire\" OR \"building evacuated\" OR \"mold remediation\") when:14d",
+    "\"Charlotte Fire\" (\"apartment\" OR \"hotel\" OR \"warehouse\" OR \"school\") (\"fire\" OR \"evacuation\") when:14d"
+  ],
+  "socialOfficialSourceTerms": [
+    "Charlotte Fire Department",
+    "City of Charlotte",
+    "Mecklenburg County",
+    "Charlotte-Mecklenburg Emergency Management",
+    "Charlotte-Mecklenburg Police Department",
+    "CFD",
+    "Huntersville Fire",
+    "Matthews Fire",
+    "Pineville Fire",
+    "Cornelius Fire",
+    "Davidson Fire"
+  ],
+  "socialSupportSourceTerms": [
+    "Facebook",
+    "Instagram",
+    "Twitter",
+    "X.com",
+    "Nextdoor",
+    "LinkedIn",
+    "YouTube",
+    "Threads"
+  ],
+  "socialActiveTerms": [
+    "structure fire",
+    "apartment fire",
+    "commercial fire",
+    "fire crews",
+    "firefighters",
+    "evacuated",
+    "evacuation",
+    "displaced",
+    "sprinkler activation",
+    "sprinkler discharge",
+    "water flow alarm",
+    "smoke condition",
+    "mold",
+    "mold remediation",
+    "building closed",
+    "facility closed",
+    "water intrusion",
+    "water damage",
+    "pipe burst",
+    "ceiling collapse",
+    "roof collapse",
+    "unsafe building"
   ]
 }

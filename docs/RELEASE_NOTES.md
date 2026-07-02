@@ -1,11 +1,19 @@
-# Release Notes
+# v0.9.10 Alpha - Public Agency / Social Web Intelligence
 
-## v0.9.8 Alpha - Incident Intelligence + Pilot Polish
+## Added
 
-- Added Incident / Building Condition Intelligence module.
-- Monitors active property-impact articles only: mold closures, water intrusion, building closures, sprinkler discharge, pipe bursts, evacuations, and structural damage.
-- Excludes generic mold blogs, advice articles, national content, and residential noise.
-- Adds Incident Opportunities to the same property-first engine.
-- Adds incident evidence and signals to Property Intelligence Records.
-- Adds source health visibility for incident searches.
-- Keeps permit clustering, GIS enrichment, source-aware permit links, and inline property records.
+- Public Agency / Social Web Intelligence connector.
+- Indexed public-agency/social-web queries for fire, evacuation, mold, water, sprinkler, closure, and structural signals.
+- Evidence typing for official agency vs supporting social/public web sources.
+- Social/public agency counts in the generated summary and source health.
+
+## Preserved
+
+- All records collapsed on reload.
+- Map marker counts tied to filtered results.
+- Fire 72-hour primary window and 14-day safety-net fallback.
+- Permit source-aware official search links and copy-permit-number buttons.
+
+## Important limitation
+
+This is public-web indexed social/agency intelligence, not authenticated direct social scraping. It should be used as early supporting intelligence and verified through linked public evidence.

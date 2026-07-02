@@ -21,3 +21,8 @@ Every opportunity must include public evidence, a date, a source link, a propert
 - Mecklenburg Register of Deeds
 - Charlotte planning / rezoning
 - Management company official announcements
+
+
+## v0.9.10 Social / Public Agency Layer
+
+Public agency and social-web indexed sources are monitored as a supporting evidence layer. Official public agency sources receive stronger confidence than general social/public web results. These signals are not CRM activity and do not track outreach, follow-up, or sales outcomes.

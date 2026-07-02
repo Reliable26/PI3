@@ -1,5 +1,5 @@
 const assert = require('assert');
-const { classifyFire, classifyIncident, extractPropertyName, isInsideTargetTerritory, classifyPermit, normalizePermitFeature } = require('../scripts/update-intelligence.js');
+const { classifyFire, classifyIncident, classifySocialAgency, extractPropertyName, isInsideTargetTerritory, classifyPermit, normalizePermitFeature } = require('../scripts/update-intelligence.js');
 
 assert.strictEqual(classifyFire('Fire damages Ashley Place Apartments in Charlotte').keep, true);
 assert.strictEqual(classifyFire('Fire damages Ashley Place Apartments in Charlotte').category, 'Multifamily Fire');
@@ -10,6 +10,8 @@ assert.strictEqual(isInsideTargetTerritory({ title: 'Apartment fire in Belgium l
 assert.strictEqual(isInsideTargetTerritory({ title: 'Fire damages Ashley Place Apartments in southeast Charlotte', source: 'Charlotte Observer', description: 'Charlotte NC' }), true);
 assert.strictEqual(classifyIncident('Charlotte fire station closed due to mold', 'Fire Station 26 operations displaced for remediation').keep, true);
 assert.strictEqual(classifyIncident('How to remove mold in your home', 'DIY mold removal tips').keep, false);
+assert.strictEqual(classifySocialAgency('Charlotte Fire Department reports apartment fire in Charlotte apartment building', 'Residents evacuated after structure fire', 'Charlotte Fire Department').keep, true);
+assert.strictEqual(classifySocialAgency('Apartment pool party in Charlotte', 'Leasing event and food trucks', 'Facebook').keep, false);
 
 assert.strictEqual(classifyPermit({ description_of_work: 'Commercial alteration roof replacement at office building', permit_type: 'COMMERCIAL' }).keep, true);
 assert.strictEqual(classifyPermit({ description_of_work: 'Commercial alteration roof replacement at office building', permit_type: 'COMMERCIAL' }).category, 'Roofing');

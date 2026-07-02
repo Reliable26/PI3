@@ -114,13 +114,17 @@ function opportunityListItem(o, rank) {
 function renderOpportunities() {
   const items = filteredSortedOpportunities();
   const visible = items.slice(0, 10);
-  if (!state.selectedId && visible.length) state.selectedId = visible[0].id;
-  if (state.selectedId && !visible.some(o => o.id === state.selectedId) && visible.length) state.selectedId = visible[0].id;
+  if (state.selectedId && !items.some(o => o.id === state.selectedId)) {
+    state.selectedId = null;
+    state.selectedTab = 'overview';
+  }
   document.getElementById('feedStatus').textContent = `Showing ${Math.min(items.length, 10)} of ${items.length} matching properties`;
+  const mapStatus = document.getElementById('mapStatus');
+  if (mapStatus) mapStatus.textContent = `Map showing ${items.length} matching properties`;
   document.getElementById('opportunities').innerHTML = visible.map((o,i) => opportunityListItem(o, i + 1)).join('') || '<p class="empty">No properties match the current filters.</p>';
   document.querySelectorAll('.opp-row').forEach(btn => btn.addEventListener('click', () => selectOpportunity(btn.dataset.id)));
   wireDetailInteractions();
-  renderMap(items.slice(0, 12));
+  renderMap(items);
 }
 function scoreBox(label, value, cls='') {
   return `<div class="score-box ${cls}"><strong>${esc(value)}</strong><span>${esc(label)}</span></div>`;
@@ -228,11 +232,15 @@ function renderDetail(o, inline=false) {
     <div class="detail-body">${renderDetailBody(o, p, score, intelligenceScore)}</div>`;
 }
 function selectOpportunity(id, updateList=true) {
-  const o = state.opportunities.find(x => x.id === id) || filteredSortedOpportunities()[0];
+  const o = state.opportunities.find(x => x.id === id);
   if (!o) return;
-  const isNewSelection = state.selectedId !== o.id;
-  state.selectedId = o.id;
-  if (isNewSelection) state.selectedTab = 'overview';
+  if (state.selectedId === o.id) {
+    state.selectedId = null;
+    state.selectedTab = 'overview';
+  } else {
+    state.selectedId = o.id;
+    state.selectedTab = 'overview';
+  }
   if (updateList) renderOpportunities();
 }
 function wireDetailInteractions() {
@@ -257,11 +265,12 @@ function wireDetailInteractions() {
 function renderMap(items) {
   const container = document.getElementById('mapCanvas');
   if (!container) return;
-  const positions = [[18,23],[36,58],[50,34],[70,26],[78,62],[31,42],[57,71],[84,40],[45,51],[66,48],[24,70],[55,20]];
+  const positions = [[18,23],[36,58],[50,34],[70,26],[78,62],[31,42],[57,71],[84,40],[45,51],[66,48],[24,70],[55,20],[12,54],[40,18],[74,78],[88,24],[62,14],[29,80],[47,75],[91,60],[16,36],[53,56],[68,40],[81,52],[35,70],[59,29],[22,14],[44,43],[72,66],[10,72],[96,42],[6,28],[31,62],[63,84],[49,21]];
   const markers = items.map((o,i) => {
     const score = o.ratings?.overall ?? 0;
     const pos = positions[i % positions.length];
-    return `<button type="button" class="map-marker ${heatLabel(score).toLowerCase()}" style="left:${pos[0]}%;top:${pos[1]}%" data-id="${esc(o.id)}" title="${esc(o.propertyName)}">${i+1}</button>`;
+    const selected = state.selectedId === o.id ? ' selected' : '';
+    return `<button type="button" class="map-marker ${heatLabel(score).toLowerCase()}${selected}" style="left:${pos[0]}%;top:${pos[1]}%" data-id="${esc(o.id)}" title="${esc(o.propertyName)}">${i+1}</button>`;
   }).join('');
   container.innerHTML = `<div class="map-label charlotte">Charlotte</div><div class="road r1"></div><div class="road r2"></div><div class="road r3"></div><div class="road r4"></div>${markers}`;
   container.querySelectorAll('.map-marker').forEach(btn => btn.addEventListener('click', () => selectOpportunity(btn.dataset.id)));

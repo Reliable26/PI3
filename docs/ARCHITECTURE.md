@@ -28,3 +28,8 @@ Reliable Intel is property-first. Public records, permits, incidents, ownership 
 ## v0.9.3 Change
 
 The v0.9.3 build keeps the existing data pipeline unchanged and improves the workspace layer with sorting, filtering, search, heat indicators, chronological timeline ordering, and collapsed internal diagnostics.
+
+
+## v0.9.10 Social / Public Agency Layer
+
+Public agency and social-web indexed sources are monitored as a supporting evidence layer. Official public agency sources receive stronger confidence than general social/public web results. These signals are not CRM activity and do not track outreach, follow-up, or sales outcomes.

@@ -1,6 +1,6 @@
 {
   "name": "commercial-property-intelligence",
-  "version": "0.9.8-alpha",
+  "version": "0.9.10-alpha",
   "private": true,
   "scripts": {
     "test": "node tests/run-tests.js",

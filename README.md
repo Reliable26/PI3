@@ -1,11 +1,15 @@
-# Commercial Property Intelligence v0.9.8 Alpha
+# Commercial Property Intelligence v0.9.10
 
-Inline property records and reduced-scrolling pilot workflow.
+Root-ready GitHub Pages build.
 
+## This release
 
-## v0.9.8 Alpha
+- Adds Public Agency / Social Web Intelligence.
+- Keeps v0.9.9 collapsed queue behavior.
+- Keeps map count correction and fire 14-day safety net.
+- Treats social/public web results as supporting evidence unless they are from official public-agency sources.
+- Does not replace official permit, GIS, deed, or incident records.
 
-- Adds Incident / Building Condition Intelligence for active mold, water intrusion, closures, displacement, and structural issues.
-- Keeps generic mold/blog content excluded.
-- Adds incident summary metrics and property records.
-- Refines pilot workflow copy.
+## Install
+
+Copy all files into the repository root, commit, push, then run the Update Intelligence workflow.

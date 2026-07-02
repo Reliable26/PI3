@@ -191,6 +191,33 @@ function classifyIncident(title='', description='') {
   return { keep:true, category:'Building Condition Incident', reason:'Matched active building-condition incident' };
 }
 
+function classifySocialAgency(title='', description='', source='') {
+  const raw = `${title} ${description} ${source}`;
+  const text = normalizeText(raw);
+  if (settings.excludeTerms.some(t => text.includes(normalizeText(t)))) return { keep:false, category:'Excluded', reason:'Excluded residential/noise term' };
+  if ((settings.incidentGenericExcludeTerms || []).some(t => text.includes(normalizeText(t)))) return { keep:false, category:'Generic/Advice Content', reason:'Generic advice/blog content' };
+  const hasActiveSignal = (settings.socialActiveTerms || []).some(t => text.includes(normalizeText(t))) || (settings.incidentActiveTerms || []).some(t => text.includes(normalizeText(t)));
+  const hasPropertySignal = (settings.incidentPropertyTerms || []).some(t => text.includes(normalizeText(t)));
+  if (!hasActiveSignal) return { keep:false, category:'No Active Social Signal', reason:'No active public agency/social event signal' };
+  if (!hasPropertySignal) return { keep:false, category:'No Commercial Property Signal', reason:'Social/public post not tied to target property type' };
+
+  const official = (settings.socialOfficialSourceTerms || []).some(t => text.includes(normalizeText(t)));
+  const social = (settings.socialSupportSourceTerms || []).some(t => text.includes(normalizeText(t)));
+  const checks = [
+    ['Public Agency Fire Signal', ['structure fire','apartment fire','commercial fire','fire crews','firefighters','smoke condition']],
+    ['Public Agency Evacuation / Displacement', ['evacuated','evacuation','displaced','temporarily relocated']],
+    ['Public Agency Water / Sprinkler Signal', ['sprinkler activation','sprinkler discharge','water flow alarm','water intrusion','water damage','pipe burst']],
+    ['Public Agency Mold / Closure Signal', ['mold','mold remediation','building closed','facility closed']],
+    ['Public Agency Structural Signal', ['ceiling collapse','roof collapse','unsafe building','structural damage']]
+  ];
+  for (const [category, terms] of checks) {
+    if (terms.some(t => text.includes(normalizeText(t)))) {
+      return { keep:true, category, reason: official ? `Official/source-indexed public post matched ${category}` : (social ? `Social-web indexed signal matched ${category}` : `Public web signal matched ${category}`), evidenceType: official ? 'Official Public Agency Source' : 'Supporting Social/Public Web Source' };
+    }
+  }
+  return { keep:true, category:'Public Agency / Social Signal', reason:'Matched active public agency/social building-condition signal', evidenceType: official ? 'Official Public Agency Source' : 'Supporting Social/Public Web Source' };
+}
+
 function incidentServices(category='') {
   const c = normalizeText(category);
   if (c.includes('mold')) return ['Mold remediation','Water intrusion investigation','Containment','Interior build back','Commercial reconstruction','Annual property documentation'];
@@ -241,6 +268,54 @@ function buildIncidentOpportunity(group) {
       { label: 'Active building-condition signal', points: 20 },
       { label: 'Recent public source', points: ageHours <= 72 ? 15 : 8 },
       { label: 'Property type / facility signal', points: 10 },
+      { label: 'Supporting sources', points: sources.length > 1 ? 10 : 0 }
+    ].filter(x => x.points > 0)
+  };
+}
+
+
+function buildSocialOpportunity(group) {
+  const sorted = group.items.sort((a,b) => new Date(b.publishedAt) - new Date(a.publishedAt));
+  const lead = sorted[0];
+  const ageHours = hoursBetween(new Date(lead.publishedAt), new Date());
+  const propertyName = lead.propertyName || 'Property Requires Verification';
+  const sources = sorted.map(item => ({
+    name: item.source || extractSourceFromTitle(item.title),
+    title: cleanTitle(item.title),
+    url: item.link,
+    publishedAt: item.publishedAt,
+    type: item.evidenceType || 'Supporting Social/Public Web Source'
+  }));
+  const temp = { propertyName, category: lead.category, sources };
+  const scores = calculateScores(temp, ageHours, sources.length);
+  scores.confidence = Math.min(96, scores.confidence + (String(lead.evidenceType || '').includes('Official') ? 10 : 2));
+  scores.opportunity = Math.min(100, scores.opportunity + 6);
+  scores.overall = Math.min(100, Math.round(scores.overall + (String(lead.evidenceType || '').includes('Official') ? 7 : 3)));
+  return {
+    id: `PI-${new Date().getUTCFullYear()}-${hash(`social|${propertyName}|${lead.category}|${lead.publishedAt}`).toUpperCase()}`,
+    propertyId: `PIR-${hash(propertyName || lead.groupKey).toUpperCase()}`,
+    propertyName,
+    propertyStatus: propertyName === 'Property Requires Verification' ? 'Needs Verification' : 'Extracted - Needs Property Verification',
+    county: 'Mecklenburg / Charlotte Metro',
+    territory: settings.territoryName,
+    category: lead.category,
+    opportunityClass: 'Public Agency / Social',
+    eventDate: lead.publishedAt,
+    publishedDate: lead.publishedAt,
+    piDetectedDate: nowIso(),
+    lastVerifiedDate: nowIso(),
+    ratings: scores,
+    whatChanged: cleanTitle(lead.title),
+    whyNow: 'This is a recent public-agency or social-web indexed signal inside the Charlotte metro monitoring window. It may surface emergency or building-condition activity before permits, formal news articles, or ownership records appear.',
+    whyThisMatters: 'Official agency and public social signals can identify active fires, evacuations, sprinkler events, water damage, mold closures, or building disruptions early. These are supporting intelligence signals and should be reviewed with the linked evidence before outreach.',
+    recommendedServices: incidentServices(lead.category),
+    evidenceCount: sources.length,
+    sources,
+    signalBreakdown: [
+      { label: lead.category, points: 30 },
+      { label: String(lead.evidenceType || '').includes('Official') ? 'Official public agency source' : 'Supporting social/public web source', points: String(lead.evidenceType || '').includes('Official') ? 25 : 12 },
+      { label: 'Recent indexed public signal', points: ageHours <= 72 ? 15 : 8 },
+      { label: 'Property/facility signal', points: 10 },
       { label: 'Supporting sources', points: sources.length > 1 ? 10 : 0 }
     ].filter(x => x.points > 0)
   };
@@ -745,6 +820,18 @@ function buildIncidentPropertyRecord(opportunity) {
   };
 }
 
+
+function buildSocialPropertyRecord(opportunity) {
+  const base = buildIncidentPropertyRecord({ ...opportunity, opportunityClass: 'Emergency / Incident' });
+  return {
+    ...base,
+    latestSignal: opportunity.category,
+    signals: ['SOCIAL_PUBLIC_AGENCY'],
+    timelines: [{ date: opportunity.eventDate, type: 'Public Agency / Social', label: opportunity.category, description: opportunity.whatChanged, source: opportunity.sources?.[0]?.name || 'Public Agency / Social Web', url: opportunity.sources?.[0]?.url || '' }],
+    dataQuality: { ...base.dataQuality, evidence: Math.min(100, (opportunity.evidenceCount || 0) * 25), overall: Math.max(base.dataQuality?.overall || 0, 42) }
+  };
+}
+
 function mergeTimeline(a = [], b = []) {
   const map = new Map();
   for (const item of [...a, ...b]) {
@@ -977,17 +1064,52 @@ async function main() {
     }
   }
 
+
+  const socialRaw = [];
+  for (const query of (settings.socialWebQueries || [])) {
+    try {
+      const feed = await fetchFeed(query);
+      const items = feed.ok ? parseRss(feed.text) : [];
+      socialRaw.push(...items.map(x => ({ ...x, query, module: 'Public Agency / Social Web Intelligence' })));
+      health.push({ source:'Google News RSS / Public Web Index', module:'Public Agency / Social Web Intelligence', query, status: feed.ok ? 'pass' : 'fail', httpStatus: feed.status, durationMs: feed.durationMs, itemsRetrieved: items.length });
+    } catch (err) {
+      health.push({ source:'Google News RSS / Public Web Index', module:'Public Agency / Social Web Intelligence', query, status:'fail', error: err.message, itemsRetrieved:0 });
+    }
+  }
+
   const seenLinks = new Set();
   const candidates = [];
   const now = new Date();
-  let oldExcluded = 0, nonCommercialExcluded = 0, duplicateRawExcluded = 0, outOfTerritoryExcluded = 0;
+  let oldExcluded = 0, nonCommercialExcluded = 0, duplicateRawExcluded = 0, outOfTerritoryExcluded = 0, fireFallbackUsed = false;
+  const fireFallbackCandidates = [];
   for (const item of raw) {
     if (!item.link || seenLinks.has(item.link)) { duplicateRawExcluded++; continue; }
     seenLinks.add(item.link);
     const pub = item.pubDate ? new Date(item.pubDate) : null;
     if (!pub || Number.isNaN(pub.getTime())) { oldExcluded++; continue; }
     const ageHours = hoursBetween(pub, now);
-    if (ageHours > settings.emergencyMaxAgeHours) { oldExcluded++; continue; }
+    if (ageHours > settings.emergencyMaxAgeHours) {
+      const fallbackMaxHours = (settings.fireFallbackMaxAgeDays || 14) * 24;
+      if (ageHours <= fallbackMaxHours && isInsideTargetTerritory(item)) {
+        const fallbackCls = classifyFire(item.title, item.description);
+        if (fallbackCls.keep) {
+          const fallbackPropertyName = extractPropertyName(item.title, item.description);
+          fireFallbackCandidates.push({
+            title: item.title,
+            description: item.description,
+            link: item.link,
+            source: item.source || extractSourceFromTitle(item.title),
+            publishedAt: pub.toISOString(),
+            category: fallbackCls.category,
+            classificationReason: `${fallbackCls.reason}; included by 14-day fire safety-net because no current fire signals were available`,
+            propertyName: fallbackPropertyName || '',
+            opportunityClass: 'Emergency',
+            groupKey: `${slug(fallbackPropertyName || cleanTitle(item.title).slice(0,80))}|${fallbackCls.category}|${pub.toISOString().slice(0,10)}`
+          });
+        }
+      }
+      oldExcluded++; continue;
+    }
     if (!isInsideTargetTerritory(item)) { outOfTerritoryExcluded++; continue; }
     const cls = classifyFire(item.title, item.description);
     if (!cls.keep) { nonCommercialExcluded++; continue; }
@@ -1004,6 +1126,11 @@ async function main() {
       opportunityClass: 'Emergency',
       groupKey: `${slug(propertyName || cleanTitle(item.title).slice(0,80))}|${cls.category}|${pub.toISOString().slice(0,10)}`
     });
+  }
+
+  if (!candidates.length && fireFallbackCandidates.length) {
+    candidates.push(...fireFallbackCandidates);
+    fireFallbackUsed = true;
   }
 
 
@@ -1031,6 +1158,36 @@ async function main() {
       classificationReason: cls.reason,
       propertyName: propertyName || '',
       opportunityClass: 'Emergency / Incident',
+      groupKey: `${slug(propertyName || cleanTitle(item.title).slice(0,80))}|${cls.category}|${pub.toISOString().slice(0,10)}`
+    });
+  }
+
+
+  const socialSeenLinks = new Set(incidentSeenLinks);
+  const socialCandidates = [];
+  let socialOldExcluded = 0, socialExcluded = 0, socialOutOfTerritoryExcluded = 0, socialDuplicateExcluded = 0;
+  for (const item of socialRaw) {
+    if (!item.link || socialSeenLinks.has(item.link)) { socialDuplicateExcluded++; continue; }
+    socialSeenLinks.add(item.link);
+    const pub = item.pubDate ? new Date(item.pubDate) : null;
+    if (!pub || Number.isNaN(pub.getTime())) { socialOldExcluded++; continue; }
+    const ageDays = hoursBetween(pub, now) / 24;
+    if (ageDays > (settings.socialMaxAgeDays || 14)) { socialOldExcluded++; continue; }
+    if (!isInsideTargetTerritory(item)) { socialOutOfTerritoryExcluded++; continue; }
+    const cls = classifySocialAgency(item.title, item.description, item.source);
+    if (!cls.keep) { socialExcluded++; continue; }
+    const propertyName = extractPropertyName(item.title, item.description) || cleanPropertyCandidate(removeEventPhrases(cleanTitle(item.title)));
+    socialCandidates.push({
+      title: item.title,
+      description: item.description,
+      link: item.link,
+      source: item.source || extractSourceFromTitle(item.title),
+      publishedAt: pub.toISOString(),
+      category: cls.category,
+      classificationReason: cls.reason,
+      evidenceType: cls.evidenceType || 'Supporting Social/Public Web Source',
+      propertyName: propertyName || '',
+      opportunityClass: 'Public Agency / Social',
       groupKey: `${slug(propertyName || cleanTitle(item.title).slice(0,80))}|${cls.category}|${pub.toISOString().slice(0,10)}`
     });
   }
@@ -1070,16 +1227,23 @@ async function main() {
     incidentGroups.get(key).items.push(item);
   }
   const incidentOpportunities = [...incidentGroups.values()].map(buildIncidentOpportunity);
+  const socialGroups = new Map();
+  for (const item of socialCandidates) {
+    const key = item.groupKey;
+    if (!socialGroups.has(key)) socialGroups.set(key, { key, items: [] });
+    socialGroups.get(key).items.push(item);
+  }
+  const socialOpportunities = [...socialGroups.values()].map(buildSocialOpportunity);
   const permitClusters = clusterPermitRecords(permitCandidates);
   let permitOpportunities = permitClusters.map(buildPermitClusterOpportunity);
   const gisEnrichment = await enrichPermitOpportunitiesWithGis(permitOpportunities, health);
   permitOpportunities = gisEnrichment.opportunities;
-  const opportunities = [...fireOpportunities, ...incidentOpportunities, ...permitOpportunities].sort((a,b) => b.ratings.overall - a.ratings.overall);
-  const properties = dedupeProperties(opportunities.map(o => o.opportunityClass === 'Capital Improvement' ? buildPermitPropertyRecord(o) : (o.opportunityClass === 'Emergency / Incident' ? buildIncidentPropertyRecord(o) : buildFirePropertyRecord(o))));
+  const opportunities = [...fireOpportunities, ...incidentOpportunities, ...socialOpportunities, ...permitOpportunities].sort((a,b) => b.ratings.overall - a.ratings.overall);
+  const properties = dedupeProperties(opportunities.map(o => o.opportunityClass === 'Capital Improvement' ? buildPermitPropertyRecord(o) : (o.opportunityClass === 'Emergency / Incident' ? buildIncidentPropertyRecord(o) : (o.opportunityClass === 'Public Agency / Social' ? buildSocialPropertyRecord(o) : buildFirePropertyRecord(o)))));
   const organizations = collectOrganizationsFromOpportunities(opportunities);
   const signals = opportunities.flatMap(o => {
     const evidenceIds = (o.sources || []).map(s => buildEvidence({ source: s.name, url: s.url, title: s.title, publishedAt: s.publishedAt }).evidenceId);
-    return [buildSignal({ propertyId: o.propertyId, type: o.opportunityClass === 'Capital Improvement' ? 'PERMIT' : (o.opportunityClass === 'Emergency / Incident' ? 'INCIDENT' : 'FIRE'), category: o.category, source: o.sources?.[0]?.name || 'Public Source', date: o.eventDate, confidence: (o.ratings?.confidence || 0) / 100, impact: (o.ratings?.impact || 0) / 100, evidenceIds, metadata: { opportunityId: o.id } })];
+    return [buildSignal({ propertyId: o.propertyId, type: o.opportunityClass === 'Capital Improvement' ? 'PERMIT' : (o.opportunityClass === 'Emergency / Incident' ? 'INCIDENT' : (o.opportunityClass === 'Public Agency / Social' ? 'SOCIAL_PUBLIC_AGENCY' : 'FIRE')), category: o.category, source: o.sources?.[0]?.name || 'Public Source', date: o.eventDate, confidence: (o.ratings?.confidence || 0) / 100, impact: (o.ratings?.impact || 0) / 100, evidenceIds, metadata: { opportunityId: o.id } })];
   });
   const evidence = opportunities.flatMap(o => (o.sources || []).map(s => buildEvidence({ source: s.name, url: s.url, title: s.title, publishedAt: s.publishedAt })));
   const byClass = opportunities.reduce((acc, o) => { acc[o.opportunityClass] = (acc[o.opportunityClass] || 0) + 1; return acc; }, {});
@@ -1088,11 +1252,12 @@ async function main() {
     version: settings.version,
     territory: settings.territoryName,
     summary: {
-      rawItemsRetrieved: raw.length + incidentRaw.length + permitRaw,
-      candidates: candidates.length + incidentCandidates.length + permitCandidates.length,
+      rawItemsRetrieved: raw.length + incidentRaw.length + socialRaw.length + permitRaw,
+      candidates: candidates.length + incidentCandidates.length + socialCandidates.length + permitCandidates.length,
       opportunities: opportunities.length,
       emergencyOpportunities: byClass.Emergency || 0,
       incidentOpportunities: byClass['Emergency / Incident'] || 0,
+      socialAgencyOpportunities: byClass['Public Agency / Social'] || 0,
       capitalImprovementOpportunities: byClass['Capital Improvement'] || 0,
       properties: properties.length,
       gisLookups: typeof gisEnrichment !== 'undefined' ? gisEnrichment.gisLookups : 0,
@@ -1103,12 +1268,24 @@ async function main() {
       oldItemsExcluded: oldExcluded + incidentOldExcluded,
       nonCommercialExcluded: nonCommercialExcluded + incidentExcluded,
       outOfTerritoryExcluded: outOfTerritoryExcluded + incidentOutOfTerritoryExcluded,
-      duplicateRawExcluded: duplicateRawExcluded + incidentDuplicateExcluded,
+      socialRecordsRetrieved: socialRaw.length,
+      socialCandidates: socialCandidates.length,
+      socialExcluded,
+      socialOldExcluded,
+      socialOutOfTerritoryExcluded,
+      duplicateRawExcluded: duplicateRawExcluded + incidentDuplicateExcluded + socialDuplicateExcluded,
       incidentRecordsRetrieved: incidentRaw.length,
       incidentCandidates: incidentCandidates.length,
       incidentExcluded,
       incidentOldExcluded,
       incidentOutOfTerritoryExcluded,
+      socialRecordsRetrieved: socialRaw.length,
+      socialCandidates: socialCandidates.length,
+      socialExcluded,
+      socialOldExcluded,
+      socialOutOfTerritoryExcluded,
+      fireFallbackUsed,
+      fireFallbackCandidates: fireFallbackCandidates.length,
       duplicateGroupsMerged: candidates.length - fireOpportunities.length,
       permitRecordsRetrieved: permitRaw,
       permitCandidates: permitCandidates.length,
@@ -1131,9 +1308,9 @@ async function main() {
   fs.writeFileSync(path.join(dataDir, 'signals.json'), JSON.stringify({ generatedAt: output.generatedAt, signals }, null, 2));
   fs.writeFileSync(path.join(dataDir, 'evidence.json'), JSON.stringify({ generatedAt: output.generatedAt, evidence }, null, 2));
   fs.writeFileSync(path.join(dataDir, 'source-health.json'), JSON.stringify({ generatedAt: output.generatedAt, health, summary: output.summary }, null, 2));
-  console.log(`PI update complete. Opportunities: ${opportunities.length}. Emergency: ${byClass.Emergency || 0}. Incidents: ${byClass['Emergency / Incident'] || 0}. Capital: ${byClass['Capital Improvement'] || 0}. Permit records: ${permitRaw}.`);
+  console.log(`PI update complete. Opportunities: ${opportunities.length}. Emergency: ${byClass.Emergency || 0}. Incidents: ${byClass['Emergency / Incident'] || 0}. Social/Public Agency: ${byClass['Public Agency / Social'] || 0}. Capital: ${byClass['Capital Improvement'] || 0}. Permit records: ${permitRaw}.`);
 }
 
 if (require.main === module) main().catch(err => { console.error(err); process.exit(1); });
 
-module.exports = { parseRss, classifyFire, classifyIncident, extractPropertyName, isInsideTargetTerritory, buildOpportunity, buildIncidentOpportunity, classifyPermit, normalizePermitFeature, buildPermitOpportunity, buildPermitClusterOpportunity, clusterPermitRecords, normalizeAddressKey, parcelPropertyId, normalizeOrgName, organizationId, buildPermitPropertyRecord, dedupeProperties, buildGisParcelQueryUrl, permitSourceRecordUrl };
+module.exports = { parseRss, classifyFire, classifyIncident, classifySocialAgency, extractPropertyName, isInsideTargetTerritory, buildOpportunity, buildIncidentOpportunity, classifyPermit, normalizePermitFeature, buildPermitOpportunity, buildPermitClusterOpportunity, clusterPermitRecords, normalizeAddressKey, parcelPropertyId, normalizeOrgName, organizationId, buildPermitPropertyRecord, dedupeProperties, buildGisParcelQueryUrl, permitSourceRecordUrl };
