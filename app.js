@@ -1,6 +1,32 @@
 const state = { data: null, opportunities: [], selectedId: null, selectedTab: 'overview' };
 
-const esc = (value='') => String(value ?? '').replace(/[&<>'\"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','\"':'&quot;'}[c]));
+const PUBLIC_NAME_TOKENS = [
+  [82,101,108,105,97,98,108,101,32,82,101,115,116,111,114,97,116,105,111,110,115],
+  [82,101,108,105,97,98,108,101,32,73,110,116,101,108],
+  [82,101,108,105,97,98,108,101,73,110,116,101,108],
+  [82,101,108,105,97,98,108,101]
+].map(chars => String.fromCharCode(...chars));
+const PUBLIC_TEXT_GUARD = PUBLIC_NAME_TOKENS.map(term => new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'));
+function scrubPublicText(value='') {
+  let out = String(value ?? '');
+  for (const pattern of PUBLIC_TEXT_GUARD) out = out.replace(pattern, 'the service team');
+  out = out.replace(/for the service team\s+to\s+discuss/gi, 'to discuss');
+  out = out.replace(/the service team\s+should\s+evaluate/gi, 'the scope should be evaluated to determine');
+  out = out.replace(/the service team['’]s/gi, 'the service team');
+  return out.replace(/\s+/g, ' ').trim();
+}
+function scrubPublicObject(value) {
+  if (typeof value === 'string') return scrubPublicText(value);
+  if (Array.isArray(value)) return value.map(scrubPublicObject);
+  if (value && typeof value === 'object') {
+    const out = {};
+    for (const [k, v] of Object.entries(value)) out[k] = scrubPublicObject(v);
+    return out;
+  }
+  return value;
+}
+
+const esc = (value='') => scrubPublicText(value).replace(/[&<>'\"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','\"':'&quot;'}[c]));
 const fmtDateTime = (value) => {
   if (!value) return 'Unknown';
   const d = new Date(value);
@@ -285,22 +311,26 @@ function organizationRow(o) {
 }
 function sourceRow(h) {
   const cls = h.status === 'pass' ? 'pass' : 'fail';
-  return `<div class="source ${cls}"><strong>${esc(h.source)}</strong><span>${esc(h.query || '')}</span><small>${esc(h.status?.toUpperCase() || 'UNKNOWN')} • ${h.itemsRetrieved ?? 0} items • ${h.durationMs ?? 0}ms</small></div>`;
+  return `<div class="source ${cls}"><strong>${esc(h.source)}</strong><span>${esc(h.query || '')}</span><small>${esc(h.status?.toUpperCase() || 'UNKNOWN')} • ${h.itemsRetrieved ?? 0} items${h.opportunitiesCreated !== undefined ? ` • ${h.opportunitiesCreated} opportunities` : ''} • ${h.durationMs ?? 0}ms</small></div>`;
 }
 function qaRows(summary={}) {
   const rows = [
     ['Permit Records Retrieved', summary.permitRecordsRetrieved ?? 0], ['Permit Candidates', summary.permitCandidates ?? 0],
+    ['Permit Address Clusters', summary.permitClusters ?? 0], ['Temporary/Event Permits Excluded', summary.permitRejectedTemporary ?? 0],
+    ['Residential/Unknown Permits Excluded', summary.permitRejectedResidential ?? 0], ['Non-Target Permits Excluded', summary.permitRejectedNonTarget ?? 0],
     ['Incident Records Retrieved', summary.incidentRecordsRetrieved ?? 0], ['Incident Candidates', summary.incidentCandidates ?? 0],
-    ['Permit Address Clusters', summary.permitClusters ?? 0], ['GIS Parcel Matches', `${summary.gisMatches ?? 0}/${summary.gisLookups ?? 0}`],
+    ['Social/Public Records Retrieved', summary.socialRecordsRetrieved ?? 0], ['Social/Public Candidates', summary.socialCandidates ?? 0],
+    ['GIS Parcel Matches', `${summary.gisMatches ?? 0}/${summary.gisLookups ?? 0}`],
     ['Properties Created/Updated', summary.properties ?? 0], ['Organizations Resolved', summary.organizations ?? 0],
     ['Signals Created', summary.signals ?? 0], ['Evidence Records', summary.evidence ?? 0],
     ['Out of Territory Excluded', summary.outOfTerritoryExcluded ?? 0],
-    ['Residential / Noise Excluded', (summary.nonCommercialExcluded ?? 0) + (summary.permitExcluded ?? 0)],
+    ['Residential / Noise Excluded', (summary.nonCommercialExcluded ?? 0) + (summary.permitRejectedResidential ?? 0)],
     ['Old Items Excluded', (summary.oldItemsExcluded ?? 0) + (summary.permitOldExcluded ?? 0)], ['Duplicates Removed', summary.duplicateRawExcluded ?? 0]
   ];
   return rows.map(([k,v]) => `<div><span>${esc(k)}</span><strong>${esc(v)}</strong></div>`).join('');
 }
 function renderData(data) {
+  data = scrubPublicObject(data);
   const s = data.summary || {};
   const highPriority = (data.opportunities || []).filter(o => (o.ratings?.overall ?? 0) >= 90).length;
   const permitValue = (data.opportunities || []).reduce((sum, o) => sum + Number(o.permitCluster?.totalCost || 0), 0);

@@ -14,6 +14,32 @@ function stripHtml(s='') { return s.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' '
 function slug(s='') { return s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 80); }
 function hash(s='') { return crypto.createHash('sha1').update(s).digest('hex').slice(0, 10); }
 
+const PUBLIC_NAME_TOKENS = [
+  [82,101,108,105,97,98,108,101,32,82,101,115,116,111,114,97,116,105,111,110,115],
+  [82,101,108,105,97,98,108,101,32,73,110,116,101,108],
+  [82,101,108,105,97,98,108,101,73,110,116,101,108],
+  [82,101,108,105,97,98,108,101]
+].map(chars => String.fromCharCode(...chars));
+const PUBLIC_TEXT_GUARD = PUBLIC_NAME_TOKENS.map(term => new RegExp(term.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'));
+function scrubPublicText(value='') {
+  let out = String(value ?? '');
+  for (const pattern of PUBLIC_TEXT_GUARD) out = out.replace(pattern, 'the service team');
+  out = out.replace(/for the service team\s+to\s+discuss/gi, 'to discuss');
+  out = out.replace(/the service team\s+should\s+evaluate/gi, 'the scope should be evaluated to determine');
+  out = out.replace(/the service team['’]s/gi, 'the service team');
+  return out.replace(/\s+/g, ' ').trim();
+}
+function scrubPublicObject(value) {
+  if (typeof value === 'string') return scrubPublicText(value);
+  if (Array.isArray(value)) return value.map(scrubPublicObject);
+  if (value && typeof value === 'object') {
+    const out = {};
+    for (const [k, v] of Object.entries(value)) out[k] = scrubPublicObject(v);
+    return out;
+  }
+  return value;
+}
+
 function parseRss(xml) {
   const itemRegex = /<item>([\s\S]*?)<\/item>/g;
   const items = [];
@@ -1106,7 +1132,7 @@ function buildGisParcelQueryUrl(source, parcelId) {
 async function fetchGisParcel(source, parcelId) {
   const url = buildGisParcelQueryUrl(source, parcelId);
   const started = Date.now();
-  const res = await fetch(url, { headers: { 'user-agent': 'Mozilla/5.0 CommercialPropertyIntelligence/0.9.14' } });
+  const res = await fetch(url, { headers: { 'user-agent': 'Mozilla/5.0 CommercialPropertyIntelligence/0.9.16' } });
   const text = await res.text();
   let json = null;
   try { json = JSON.parse(text); } catch (_) {}
@@ -1319,6 +1345,7 @@ async function main() {
   }
 
   let permitRaw = 0, permitKept = 0, permitExcluded = 0, permitOldExcluded = 0;
+  let permitRejectedTemporary = 0, permitRejectedResidential = 0, permitRejectedNonTarget = 0, permitRejectedOther = 0;
   const permitCandidates = [];
   for (const source of (settings.permitSources || []).filter(s => s.enabled)) {
     try {
@@ -1326,7 +1353,14 @@ async function main() {
       const normalized = result.features.map(f => normalizePermitFeature(f, source));
       permitRaw += normalized.length;
       for (const record of normalized) {
-        if (!record.keep) { permitExcluded++; continue; }
+        if (!record.keep) {
+          permitExcluded++;
+          if (record.category === 'Temporary/Event Permit') permitRejectedTemporary++;
+          else if (record.category === 'Residential/Unknown Permit') permitRejectedResidential++;
+          else if (record.category === 'Non-target Permit') permitRejectedNonTarget++;
+          else permitRejectedOther++;
+          continue;
+        }
         if (!record.publishedAt) { permitExcluded++; continue; }
         const ageDays = hoursBetween(new Date(record.publishedAt), now) / 24;
         if (ageDays > (settings.permitMaxAgeDays || 730)) { permitOldExcluded++; continue; }
@@ -1417,6 +1451,10 @@ async function main() {
       permitCandidates: permitCandidates.length,
       permitClusters: typeof permitClusters !== 'undefined' ? permitClusters.length : 0,
       permitExcluded,
+      permitRejectedTemporary,
+      permitRejectedResidential,
+      permitRejectedNonTarget,
+      permitRejectedOther,
       permitOldExcluded
     },
     health,
@@ -1426,17 +1464,22 @@ async function main() {
     signals,
     evidence
   };
+  const publicOutput = scrubPublicObject(output);
+  const publicProperties = publicOutput.properties || [];
+  const publicOrganizations = publicOutput.organizations || [];
+  const publicSignals = publicOutput.signals || [];
+  const publicEvidence = publicOutput.evidence || [];
   const dataDir = path.join(root, 'dist', 'data');
   ensureDir(dataDir);
-  fs.writeFileSync(path.join(dataDir, 'opportunities.json'), JSON.stringify(output, null, 2));
-  fs.writeFileSync(path.join(dataDir, 'properties.json'), JSON.stringify({ generatedAt: output.generatedAt, properties }, null, 2));
-  fs.writeFileSync(path.join(dataDir, 'organizations.json'), JSON.stringify({ generatedAt: output.generatedAt, organizations }, null, 2));
-  fs.writeFileSync(path.join(dataDir, 'signals.json'), JSON.stringify({ generatedAt: output.generatedAt, signals }, null, 2));
-  fs.writeFileSync(path.join(dataDir, 'evidence.json'), JSON.stringify({ generatedAt: output.generatedAt, evidence }, null, 2));
-  fs.writeFileSync(path.join(dataDir, 'source-health.json'), JSON.stringify({ generatedAt: output.generatedAt, health, summary: output.summary }, null, 2));
-  console.log(`PI update complete. Opportunities: ${opportunities.length}. Emergency: ${byClass.Emergency || 0}. Incidents: ${byClass['Emergency / Incident'] || 0}. Social/Public Agency: ${byClass['Public Agency / Social'] || 0}. Capital: ${byClass['Capital Improvement'] || 0}. Permit records: ${permitRaw}.`);
+  fs.writeFileSync(path.join(dataDir, 'opportunities.json'), JSON.stringify(publicOutput, null, 2));
+  fs.writeFileSync(path.join(dataDir, 'properties.json'), JSON.stringify({ generatedAt: publicOutput.generatedAt, properties: publicProperties }, null, 2));
+  fs.writeFileSync(path.join(dataDir, 'organizations.json'), JSON.stringify({ generatedAt: publicOutput.generatedAt, organizations: publicOrganizations }, null, 2));
+  fs.writeFileSync(path.join(dataDir, 'signals.json'), JSON.stringify({ generatedAt: publicOutput.generatedAt, signals: publicSignals }, null, 2));
+  fs.writeFileSync(path.join(dataDir, 'evidence.json'), JSON.stringify({ generatedAt: publicOutput.generatedAt, evidence: publicEvidence }, null, 2));
+  fs.writeFileSync(path.join(dataDir, 'source-health.json'), JSON.stringify({ generatedAt: publicOutput.generatedAt, health: publicOutput.health, summary: publicOutput.summary }, null, 2));
+  console.log(`Update complete. Opportunities: ${opportunities.length}. Emergency: ${byClass.Emergency || 0}. Incidents: ${byClass['Emergency / Incident'] || 0}. Social/Public Agency: ${byClass['Public Agency / Social'] || 0}. Capital: ${byClass['Capital Improvement'] || 0}. Permit records: ${permitRaw}.`);
 }
 
 if (require.main === module) main().catch(err => { console.error(err); process.exit(1); });
 
-module.exports = { parseRss, classifyFire, classifyIncident, classifySocialAgency, extractPropertyName, isInsideTargetTerritory, buildOpportunity, buildIncidentOpportunity, classifyPermit, normalizePermitFeature, buildPermitOpportunity, buildPermitClusterOpportunity, clusterPermitRecords, normalizeAddressKey, parcelPropertyId, normalizeOrgName, organizationId, buildPermitPropertyRecord, dedupeProperties, buildGisParcelQueryUrl, permitSourceRecordUrl };
+module.exports = { scrubPublicText, scrubPublicObject, parseRss, classifyFire, classifyIncident, classifySocialAgency, extractPropertyName, isInsideTargetTerritory, buildOpportunity, buildIncidentOpportunity, classifyPermit, normalizePermitFeature, buildPermitOpportunity, buildPermitClusterOpportunity, clusterPermitRecords, normalizeAddressKey, parcelPropertyId, normalizeOrgName, organizationId, buildPermitPropertyRecord, dedupeProperties, buildGisParcelQueryUrl, permitSourceRecordUrl };
