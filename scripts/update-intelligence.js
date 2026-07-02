@@ -453,9 +453,16 @@ function permitText(attrs) {
   ].join(' ');
 }
 
+
+function isExcludedPermitScope(attrs) {
+  const text = normalizeText(permitText(attrs));
+  return (settings.permitExcludedScopeTerms || []).some(term => text.includes(normalizeText(term)));
+}
+
 function classifyPermit(attrs) {
   const rawText = permitText(attrs);
   const text = normalizeText(rawText);
+  if (isExcludedPermitScope(attrs)) return { keep:false, category:'Temporary/Event Permit', reason:'Festival, temporary event, staging, sign, or non-building scope' };
   const hasTarget = (settings.permitTargetTerms || []).some(t => text.includes(normalizeText(t)));
   const commercialHints = [
     ...(settings.permitCommercialTerms || []),

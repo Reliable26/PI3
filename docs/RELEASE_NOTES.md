@@ -1,14 +1,13 @@
-# v0.9.12 Alpha - Project-Specific Opportunity Narratives
+# v0.9.13 Alpha - Permit Scope Exclusion
 
 ## Fixed
-- Replaced the generic permit-cluster "Why This Matters" fallback with project-specific narratives.
-- Permit opportunities now explain the sales reason using the actual public permit details when available.
-- Added a visible Project Description section inside the expanded Property Intelligence Record.
-- Recommended services now adjust based on permit scope signals such as roofing, exterior, waterproofing, water damage, fire damage, structural repair, interior alteration, and amenity work.
+- Excludes temporary/festival/event permit scopes from the opportunity queue.
+- Blocks festival stages, temporary tents, booths, amusement rides, event permits, signs/banners, generators, food trucks, and related non-building scopes.
+- Keeps legitimate commercial alteration, roofing, envelope, waterproofing, fire/water damage, structural, interior, and capital improvement permits.
 
-## Preserved
-- Full queue display instead of top-10 cap.
-- Inline property records.
-- Collapsed-by-default queue behavior.
-- Source-aware permit links and copy permit number buttons.
-- Public agency / social web intelligence layer.
+## Why
+Temporary event permits are technically building permits in the county dataset, but they are not target opportunities for commercial restoration, reconstruction, or capital improvement prospecting.
+
+## Validation
+- Added tests for Taste of Charlotte festival stage/no-review building permit exclusion.
+- Existing fire, incident, social, and commercial permit tests retained.
