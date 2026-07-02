@@ -1,15 +1,19 @@
-# Commercial Property Intelligence - v0.9.16 Alpha
+# Commercial Property Intelligence
 
-Pilot hardening release.
+Development build: v0.9.17 Alpha
+
+## Purpose
+
+Property-first commercial intelligence platform for identifying public-record signals tied to commercial properties.
+
+## Current build focus
+
+v0.9.17 adds Ownership / Register of Deeds source validation.
 
 ## Install
-Copy contents into the `PI3` repository root, replace files, commit, push, and run **Actions -> Update Intelligence -> Run workflow**.
 
-## Commit message
-`Commercial Property Intelligence v0.9.16 pilot hardening QA diagnostics`
+Copy the repository-root contents into the GitHub repo, commit, push, then run GitHub Actions -> Update Intelligence.
 
-## Highlights
-- Expanded QA diagnostics for permits, incidents, social/public sources, and fire fallback behavior.
-- Preserves no-branding public build.
-- Preserves collapsed property records on reload.
-- Preserves source-aware permit links.
+## Notes
+
+Generated intelligence data is produced during GitHub Actions deployment and is not committed back to the repository.

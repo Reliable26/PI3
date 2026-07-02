@@ -33,3 +33,12 @@ The v0.9.3 build keeps the existing data pipeline unchanged and improves the wor
 ## v0.9.10 Social / Public Agency Layer
 
 Public agency and social-web indexed sources are monitored as a supporting evidence layer. Official public agency sources receive stronger confidence than general social/public web results. These signals are not CRM activity and do not track outreach, follow-up, or sales outcomes.
+
+
+## v0.9.16 Pilot Hardening
+
+The pilot build adds diagnostics around rejected records, temporary/event permits, incidents, social/public-web records, and source health so the platform can be tuned using live data.
+
+
+## v0.9.17 Ownership Validation
+Ownership data is resolved in layers: permit owner fields first, GIS owner fields second, and Register of Deeds planned as the authoritative ownership-change connector.

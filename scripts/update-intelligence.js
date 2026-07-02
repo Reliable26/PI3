@@ -775,6 +775,32 @@ function buildPermitOpportunity(record) {
 }
 
 
+
+function ownerFromGisAttributes(attrs={}) {
+  if (!attrs || typeof attrs !== 'object') return '';
+  const direct = firstValue(attrs, [
+    'OWN_NAME','OWNER_NAME','OWNERNAME','OWNNAME','OWNER','NAME','MAIL_NAME','MAILING_NAME',
+    'TAXPAYER','TAXPAYER_NAME','BILLING_NAME','BILLED_TO','CAMA_OWNER','LANDOWNER','LEGAL_OWNER',
+    'OwnerName','ownername','owner_name','owner','ownname','own_name'
+  ]);
+  if (direct) return String(direct).trim();
+  // Fallback: scan field names for owner-like labels and return the first useful value.
+  for (const [key, value] of Object.entries(attrs)) {
+    const k = normalizeText(key);
+    if ((k.includes('owner') || k.includes('taxpayer') || k.includes('billed') || k.includes('mail name')) && value) {
+      const v = String(value).trim();
+      if (v && !/^0+$/.test(v) && v.length > 2) return v;
+    }
+  }
+  return '';
+}
+
+function ownershipResolutionStatus(property) {
+  if (property?.owner?.name) return 'Owner resolved';
+  if (property?.parcelId) return 'Parcel resolved - owner pending';
+  return 'Owner pending';
+}
+
 function normalizeOrgName(name='') {
   const raw = String(name || '').trim();
   if (!raw) return '';
@@ -869,7 +895,8 @@ function buildEvidence({ source, url, title, publishedAt, type='Public Source', 
 function buildPermitPropertyRecord(opportunity) {
   const c = opportunity.permitCluster || {};
   const address = c.address || opportunity.propertyName || '';
-  const ownerName = c.owner || '';
+  const gisOwnerName = ownerFromGisAttributes(opportunity.propertyResolution?.gisAttributes || {});
+  const ownerName = c.owner || gisOwnerName || '';
   const propertyId = parcelPropertyId(c.parcelId, address);
   const samplePermit = (c.permits || [])[0] || opportunity.permit || {};
   const propertyType = inferPropertyTypeFromPermit(samplePermit);
@@ -890,7 +917,7 @@ function buildPermitPropertyRecord(opportunity) {
     county: opportunity.county || 'Mecklenburg',
     territory: opportunity.territory || settings.territoryName,
     propertyType,
-    owner: ownerName ? { organizationId: organizationId(ownerName, 'Owner'), name: normalizeOrgName(ownerName), confidence: 0.88, source: 'Permit record' } : null,
+    owner: ownerName ? { organizationId: organizationId(ownerName, 'Owner'), name: normalizeOrgName(ownerName), confidence: c.owner ? 0.88 : 0.78, source: c.owner ? 'Permit record' : 'Mecklenburg GIS owner fallback' } : null,
     management: managers.length ? { organizationId: organizationId(managers[0], 'Management Company'), name: managers[0], confidence: 0.7, source: 'Text match' } : null,
     gis: opportunity.propertyResolution || null,
     currentHeatScore: opportunity.ratings?.overall || 0,
@@ -1121,7 +1148,7 @@ function buildGisParcelQueryUrl(source, parcelId) {
     : '1=0';
   const params = new URLSearchParams({
     where,
-    outFields: 'OBJECTID,NC_PIN,PID,MAP_BOOK,MAP_PAGE,MAP_BLOCK,LOT_NUM,PARCEL_TYPE,CONDO_TOWN_FLAG,Legal_From',
+    outFields: '*',
     returnGeometry: 'false',
     resultRecordCount: '1',
     f: 'json'
@@ -1132,7 +1159,7 @@ function buildGisParcelQueryUrl(source, parcelId) {
 async function fetchGisParcel(source, parcelId) {
   const url = buildGisParcelQueryUrl(source, parcelId);
   const started = Date.now();
-  const res = await fetch(url, { headers: { 'user-agent': 'Mozilla/5.0 CommercialPropertyIntelligence/0.9.16' } });
+  const res = await fetch(url, { headers: { 'user-agent': 'Mozilla/5.0 CommercialPropertyIntelligence/0.9.14' } });
   const text = await res.text();
   let json = null;
   try { json = JSON.parse(text); } catch (_) {}
@@ -1180,12 +1207,116 @@ async function enrichPermitOpportunitiesWithGis(opportunities, health) {
         gisSource: source.name,
         gisSourceUrl: gis.sourceUrl,
         gisQueryUrl: gis.queryUrl,
+        gisOwner: ownerFromGisAttributes(gis.attributes || {}),
         gisAttributes: gis.attributes || {}
       },
       propertyStatus: gis.matched ? 'Property Intelligence Record - GIS Parcel Matched' : o.propertyStatus
     };
   });
   return { opportunities: enriched, gisLookups, gisMatches };
+}
+
+
+async function fetchWithTimeout(url, options = {}, timeoutMs = 12000) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+async function validateOwnershipSources(health, properties = []) {
+  const sources = (settings.ownershipSources || []).filter(s => s.enabled);
+  const startedAll = Date.now();
+  const results = [];
+  let reachable = 0;
+  for (const source of sources) {
+    const started = Date.now();
+    try {
+      const url = source.landingUrl || source.officialSearchUrl;
+      const res = await fetchWithTimeout(url, { headers: { 'user-agent': 'Mozilla/5.0 CommercialPropertyIntelligence/0.9.17' } }, 12000);
+      const text = await res.text().catch(() => '');
+      const ok = res.ok && text.length > 0;
+      if (ok) reachable++;
+      results.push({
+        sourceId: source.id,
+        source: source.name,
+        url,
+        officialSearchUrl: source.officialSearchUrl || url,
+        officialSearchLabel: source.officialSearchLabel || `Open ${source.name}`,
+        ok,
+        status: res.status,
+        durationMs: Date.now() - started,
+        automationStatus: source.id === 'meck-register-of-deeds-official' ? 'manual-search-validation' : 'lookup-fallback',
+        notes: source.notes || ''
+      });
+      health.push({
+        source: source.name,
+        module: source.module || 'Ownership Intelligence',
+        query: source.id === 'meck-register-of-deeds-official' ? 'Official records/search access validation' : 'Official property ownership lookup access validation',
+        status: ok ? 'pass' : 'fail',
+        httpStatus: res.status,
+        durationMs: Date.now() - started,
+        itemsRetrieved: ok ? 1 : 0,
+        opportunitiesCreated: 0,
+        url: source.officialSearchUrl || url,
+        note: source.id === 'meck-register-of-deeds-official' ? 'Source reachable. Automated deed extraction not certified yet.' : 'Source reachable. Used as ownership/property verification fallback.'
+      });
+    } catch (err) {
+      results.push({
+        sourceId: source.id,
+        source: source.name,
+        ok: false,
+        status: 'error',
+        durationMs: Date.now() - started,
+        error: err.message,
+        officialSearchUrl: source.officialSearchUrl || source.landingUrl || ''
+      });
+      health.push({
+        source: source.name,
+        module: source.module || 'Ownership Intelligence',
+        query: 'Ownership source access validation',
+        status: 'fail',
+        error: err.message,
+        durationMs: Date.now() - started,
+        itemsRetrieved: 0,
+        opportunitiesCreated: 0,
+        url: source.officialSearchUrl || source.landingUrl || ''
+      });
+    }
+  }
+  const parcelsWithOwner = (properties || []).filter(p => p?.owner?.name).length;
+  const parcelsWithManualLinks = (properties || []).filter(p => p?.parcelId).length;
+  return {
+    results,
+    ownershipSourcesChecked: sources.length,
+    ownershipSourcesReachable: reachable,
+    parcelsWithOwner,
+    parcelsWithManualLinks,
+    durationMs: Date.now() - startedAll
+  };
+}
+
+function attachOwnershipValidationToProperties(properties = [], ownershipValidation = {}) {
+  const propertyRecordCard = (settings.ownershipSources || []).find(s => s.id === 'meck-property-record-card') || {};
+  const polaris = (settings.ownershipSources || []).find(s => s.id === 'meck-polaris') || {};
+  const rod = (settings.ownershipSources || []).find(s => s.id === 'meck-register-of-deeds-official') || {};
+  return properties.map(property => {
+    const ownership = {
+      status: property.owner?.name ? 'Owner Present From Source Record' : (property.parcelId ? 'Parcel Available - Owner Verification Needed' : 'Owner Verification Pending'),
+      currentOwner: property.owner?.name || '',
+      source: property.owner?.source || (property.owner?.name ? 'Permit/GIS source' : ''),
+      confidence: property.owner?.confidence || (property.owner?.name ? 0.72 : 0.25),
+      officialSearches: [
+        rod.officialSearchUrl ? { label: rod.officialSearchLabel || 'Open Register of Deeds Search', url: rod.officialSearchUrl, purpose: 'Verify recorded deeds and deed of trust records' } : null,
+        propertyRecordCard.officialSearchUrl ? { label: propertyRecordCard.officialSearchLabel || 'Open Property Record Search', url: propertyRecordCard.officialSearchUrl, purpose: 'Verify current property/owner data by parcel or address' } : null,
+        polaris.officialSearchUrl ? { label: polaris.officialSearchLabel || 'Open POLARIS', url: property.parcelId ? `${polaris.officialSearchUrl.replace(/\/$/, '')}/pid/${encodeURIComponent(String(property.parcelId).replace(/[^A-Za-z0-9]/g,''))}` : polaris.officialSearchUrl, purpose: 'Verify public land records and property ownership context' } : null
+      ].filter(Boolean)
+    };
+    return { ...property, ownershipValidation: ownership };
+  });
 }
 
 async function main() {
@@ -1344,8 +1475,7 @@ async function main() {
     });
   }
 
-  let permitRaw = 0, permitKept = 0, permitExcluded = 0, permitOldExcluded = 0;
-  let permitRejectedTemporary = 0, permitRejectedResidential = 0, permitRejectedNonTarget = 0, permitRejectedOther = 0;
+  let permitRaw = 0, permitKept = 0, permitExcluded = 0, permitOldExcluded = 0, temporaryEventPermitExcluded = 0, residentialPermitExcluded = 0, nonTargetPermitExcluded = 0;
   const permitCandidates = [];
   for (const source of (settings.permitSources || []).filter(s => s.enabled)) {
     try {
@@ -1355,10 +1485,9 @@ async function main() {
       for (const record of normalized) {
         if (!record.keep) {
           permitExcluded++;
-          if (record.category === 'Temporary/Event Permit') permitRejectedTemporary++;
-          else if (record.category === 'Residential/Unknown Permit') permitRejectedResidential++;
-          else if (record.category === 'Non-target Permit') permitRejectedNonTarget++;
-          else permitRejectedOther++;
+          if (record.category === 'Temporary/Event Permit') temporaryEventPermitExcluded++;
+          else if (record.category === 'Residential/Unknown Permit') residentialPermitExcluded++;
+          else if (record.category === 'Non-target Permit') nonTargetPermitExcluded++;
           continue;
         }
         if (!record.publishedAt) { permitExcluded++; continue; }
@@ -1399,7 +1528,23 @@ async function main() {
   const gisEnrichment = await enrichPermitOpportunitiesWithGis(permitOpportunities, health);
   permitOpportunities = gisEnrichment.opportunities;
   const opportunities = [...fireOpportunities, ...incidentOpportunities, ...socialOpportunities, ...permitOpportunities].sort((a,b) => b.ratings.overall - a.ratings.overall);
-  const properties = dedupeProperties(opportunities.map(o => o.opportunityClass === 'Capital Improvement' ? buildPermitPropertyRecord(o) : (o.opportunityClass === 'Emergency / Incident' ? buildIncidentPropertyRecord(o) : (o.opportunityClass === 'Public Agency / Social' ? buildSocialPropertyRecord(o) : buildFirePropertyRecord(o)))));
+  const propertiesBase = dedupeProperties(opportunities.map(o => o.opportunityClass === 'Capital Improvement' ? buildPermitPropertyRecord(o) : (o.opportunityClass === 'Emergency / Incident' ? buildIncidentPropertyRecord(o) : (o.opportunityClass === 'Public Agency / Social' ? buildSocialPropertyRecord(o) : buildFirePropertyRecord(o)))));
+  const ownershipValidation = await validateOwnershipSources(health, propertiesBase);
+  const properties = attachOwnershipValidationToProperties(propertiesBase, ownershipValidation);
+  const ownershipRecordsChecked = properties.length;
+  const ownershipRecordsMatched = properties.filter(p => p.owner && p.owner.name).length;
+  const ownershipSource = (settings.gisSources || []).find(s => s.enabled) || {};
+  health.push({
+    source: 'Ownership Verification Fallback',
+    module: 'Ownership Intelligence',
+    query: 'Owner availability across resolved Property Intelligence Records',
+    status: ownershipRecordsMatched > 0 ? 'pass' : 'research',
+    durationMs: 0,
+    itemsRetrieved: ownershipRecordsChecked,
+    opportunitiesCreated: 0,
+    ownerMatches: ownershipRecordsMatched,
+    url: ownershipSource.sourceUrl || ''
+  });
   const organizations = collectOrganizationsFromOpportunities(opportunities);
   const signals = opportunities.flatMap(o => {
     const evidenceIds = (o.sources || []).map(s => buildEvidence({ source: s.name, url: s.url, title: s.title, publishedAt: s.publishedAt }).evidenceId);
@@ -1423,6 +1568,13 @@ async function main() {
       gisLookups: typeof gisEnrichment !== 'undefined' ? gisEnrichment.gisLookups : 0,
       gisMatches: typeof gisEnrichment !== 'undefined' ? gisEnrichment.gisMatches : 0,
       organizations: organizations.length,
+      ownershipRecordsChecked,
+      ownershipRecordsMatched,
+      ownershipSourcesChecked: ownershipValidation.ownershipSourcesChecked || 0,
+      ownershipSourcesReachable: ownershipValidation.ownershipSourcesReachable || 0,
+      ownershipSearchLinksAvailable: ownershipValidation.parcelsWithManualLinks || 0,
+      ownershipOpportunitiesCreated: 0,
+      ownershipAutomationStatus: ownershipValidation.ownershipSourcesReachable > 0 ? 'Official source validation active; automated deed extraction pending certification' : 'source validation required',
       signals: signals.length,
       evidence: evidence.length,
       oldItemsExcluded: oldExcluded + incidentOldExcluded,
@@ -1451,13 +1603,13 @@ async function main() {
       permitCandidates: permitCandidates.length,
       permitClusters: typeof permitClusters !== 'undefined' ? permitClusters.length : 0,
       permitExcluded,
-      permitRejectedTemporary,
-      permitRejectedResidential,
-      permitRejectedNonTarget,
-      permitRejectedOther,
-      permitOldExcluded
+      permitOldExcluded,
+      temporaryEventPermitExcluded,
+      residentialPermitExcluded,
+      nonTargetPermitExcluded
     },
     health,
+    ownershipValidation,
     opportunities,
     properties,
     organizations,
@@ -1482,4 +1634,4 @@ async function main() {
 
 if (require.main === module) main().catch(err => { console.error(err); process.exit(1); });
 
-module.exports = { scrubPublicText, scrubPublicObject, parseRss, classifyFire, classifyIncident, classifySocialAgency, extractPropertyName, isInsideTargetTerritory, buildOpportunity, buildIncidentOpportunity, classifyPermit, normalizePermitFeature, buildPermitOpportunity, buildPermitClusterOpportunity, clusterPermitRecords, normalizeAddressKey, parcelPropertyId, normalizeOrgName, organizationId, buildPermitPropertyRecord, dedupeProperties, buildGisParcelQueryUrl, permitSourceRecordUrl };
+module.exports = { validateOwnershipSources, attachOwnershipValidationToProperties, scrubPublicText, scrubPublicObject, parseRss, classifyFire, classifyIncident, classifySocialAgency, extractPropertyName, isInsideTargetTerritory, buildOpportunity, buildIncidentOpportunity, classifyPermit, normalizePermitFeature, buildPermitOpportunity, buildPermitClusterOpportunity, clusterPermitRecords, normalizeAddressKey, parcelPropertyId, normalizeOrgName, organizationId, buildPermitPropertyRecord, dedupeProperties, buildGisParcelQueryUrl, permitSourceRecordUrl };

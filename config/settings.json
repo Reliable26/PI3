@@ -1,5 +1,5 @@
 {
-  "version": "0.9.16-alpha",
+  "version": "0.9.17-alpha",
   "territoryName": "Charlotte Metro",
   "emergencyMaxAgeHours": 72,
   "permitMaxAgeDays": 730,
@@ -480,5 +480,40 @@
     "generator",
     "fireworks",
     "parade"
+  ],
+  "ownershipSources": [
+    {
+      "id": "meck-register-of-deeds-official",
+      "name": "Mecklenburg Register of Deeds",
+      "module": "Ownership Intelligence",
+      "type": "official-web",
+      "enabled": true,
+      "landingUrl": "https://deeds.mecknc.gov/services/real-estate-records",
+      "officialSearchUrl": "https://meckrod.manatron.com/",
+      "officialSearchLabel": "Open Mecklenburg Register of Deeds Search",
+      "notes": "Official real estate records page and modern land records search. Automation status is validation/manual-search until a stable query endpoint is identified."
+    },
+    {
+      "id": "meck-property-record-card",
+      "name": "Mecklenburg Property Record Card",
+      "module": "Ownership Intelligence",
+      "type": "official-property-search",
+      "enabled": true,
+      "landingUrl": "https://property.spatialest.com/nc/mecklenburg",
+      "officialSearchUrl": "https://property.spatialest.com/nc/mecklenburg",
+      "officialSearchLabel": "Open Mecklenburg Property Record Search",
+      "notes": "Official property record-card search supports owner, address, and parcel searches. Used as ownership/property verification fallback."
+    },
+    {
+      "id": "meck-polaris",
+      "name": "Mecklenburg POLARIS",
+      "module": "Ownership Intelligence",
+      "type": "official-land-records",
+      "enabled": true,
+      "landingUrl": "https://polaris3g.mecklenburgcountync.gov/",
+      "officialSearchUrl": "https://polaris3g.mecklenburgcountync.gov/",
+      "officialSearchLabel": "Open Mecklenburg POLARIS",
+      "notes": "Public property ownership and land records system. Used for manual parcel verification until stable automated detail extraction is certified."
+    }
   ]
 }

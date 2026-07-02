@@ -162,6 +162,8 @@ function verifiedBy(o) {
   if ((o.opportunityClass || '').includes('Incident')) verifications.push('Public Incident Source');
   if ((o.sources || []).some(s => /news|observer|wcnc|wsoc|wbtv|google/i.test(`${s.name} ${s.url}`))) verifications.push('News / Public Records');
   if ((o.sources || []).length) verifications.push(`${o.sources.length} Evidence Source${o.sources.length === 1 ? '' : 's'}`);
+  const property = findProperty(o.propertyId) || {};
+  if (property.ownershipValidation?.status) verifications.push('Ownership Verification Links');
   return [...new Set(verifications)].slice(0, 6);
 }
 function scoreBreakdown(o) {
@@ -222,14 +224,20 @@ function renderDetailsTab(o, p) {
     ['Property Type', p.propertyType || 'Needs Classification'],
     ['Parcel', p.parcelId || o.propertyResolution?.parcelId || 'Pending'],
     ['Owner', p.owner?.name || o.permitCluster?.owner || 'Pending'],
+    ['Ownership Status', p.ownershipValidation?.status || 'Pending'],
     ['Management', p.management?.name || 'Pending'],
     ['Permit Count', o.permitCluster?.permitCount || p.permitSummary?.permitCount || 0],
     ['Listed Permit Value', compactMoney(o.permitCluster?.totalCost || p.permitSummary?.totalCost || 0)]
   ];
   return `<section class="pir-section"><h3>Property Details</h3><div class="detail-table">${rows.map(([k,v]) => `<div><span>${esc(k)}</span><strong>${esc(v)}</strong></div>`).join('')}</div></section>`;
 }
-function renderEvidenceTab(o) {
-  return `<section class="pir-section"><h3>Evidence</h3>${evidenceLinks(o)}</section>`;
+function ownershipEvidenceLinks(p = {}) {
+  const links = p.ownershipValidation?.officialSearches || [];
+  if (!links.length) return '';
+  return `<section class="pir-section"><h3>Ownership Verification</h3><div class="evidence-list">${links.map(link => `<a class="evidence-link" href="${esc(link.url)}" target="_blank" rel="noopener"><strong>${esc(link.label)}</strong><span>${esc(link.purpose || 'Official ownership verification source')}</span><small>${esc(p.parcelId ? `Use parcel ${p.parcelId}` : 'Search by parcel, address, or owner')}</small></a>`).join('')}</div></section>`;
+}
+function renderEvidenceTab(o, p = {}) {
+  return `<section class="pir-section"><h3>Evidence</h3>${evidenceLinks(o)}</section>${ownershipEvidenceLinks(p)}`;
 }
 function renderMapTab(o, p) {
   return `<section class="pir-section"><h3>Map Context</h3><p>${esc(p.address || o.propertyName || 'Selected property')} is highlighted on the Property Map below. Click another map marker or property row to update this record.</p></section>`;
@@ -238,7 +246,7 @@ function renderDetailBody(o, p, score, intelligenceScore) {
   if (state.selectedTab === 'timeline') return renderTimelineTab(o);
   if (state.selectedTab === 'details') return renderDetailsTab(o, p);
   if (state.selectedTab === 'map') return renderMapTab(o, p);
-  if (state.selectedTab === 'evidence') return renderEvidenceTab(o);
+  if (state.selectedTab === 'evidence') return renderEvidenceTab(o, p);
   return renderOverviewTab(o, p, score, intelligenceScore);
 }
 function renderDetail(o, inline=false) {
@@ -311,21 +319,27 @@ function organizationRow(o) {
 }
 function sourceRow(h) {
   const cls = h.status === 'pass' ? 'pass' : 'fail';
-  return `<div class="source ${cls}"><strong>${esc(h.source)}</strong><span>${esc(h.query || '')}</span><small>${esc(h.status?.toUpperCase() || 'UNKNOWN')} • ${h.itemsRetrieved ?? 0} items${h.opportunitiesCreated !== undefined ? ` • ${h.opportunitiesCreated} opportunities` : ''} • ${h.durationMs ?? 0}ms</small></div>`;
+  return `<div class="source ${cls}"><strong>${esc(h.source)}</strong><span>${esc(h.query || '')}</span><small>${esc(h.status?.toUpperCase() || 'UNKNOWN')} • ${h.itemsRetrieved ?? 0} items • ${h.durationMs ?? 0}ms</small></div>`;
 }
 function qaRows(summary={}) {
   const rows = [
     ['Permit Records Retrieved', summary.permitRecordsRetrieved ?? 0], ['Permit Candidates', summary.permitCandidates ?? 0],
-    ['Permit Address Clusters', summary.permitClusters ?? 0], ['Temporary/Event Permits Excluded', summary.permitRejectedTemporary ?? 0],
-    ['Residential/Unknown Permits Excluded', summary.permitRejectedResidential ?? 0], ['Non-Target Permits Excluded', summary.permitRejectedNonTarget ?? 0],
     ['Incident Records Retrieved', summary.incidentRecordsRetrieved ?? 0], ['Incident Candidates', summary.incidentCandidates ?? 0],
-    ['Social/Public Records Retrieved', summary.socialRecordsRetrieved ?? 0], ['Social/Public Candidates', summary.socialCandidates ?? 0],
-    ['GIS Parcel Matches', `${summary.gisMatches ?? 0}/${summary.gisLookups ?? 0}`],
+    ['Permit Address Clusters', summary.permitClusters ?? 0], ['GIS Parcel Matches', `${summary.gisMatches ?? 0}/${summary.gisLookups ?? 0}`],
+    ['Ownership Sources Reachable', `${summary.ownershipSourcesReachable ?? 0}/${summary.ownershipSourcesChecked ?? 0}`],
+    ['Properties With Owner Data', `${summary.ownershipRecordsMatched ?? 0}/${summary.ownershipRecordsChecked ?? 0}`],
+    ['Ownership Search Links', summary.ownershipSearchLinksAvailable ?? 0],
     ['Properties Created/Updated', summary.properties ?? 0], ['Organizations Resolved', summary.organizations ?? 0],
+    ['Ownership Records Checked', summary.ownershipRecordsChecked ?? 0], ['Ownership Records Matched', summary.ownershipRecordsMatched ?? 0],
+    ['Ownership Status', summary.ownershipAutomationStatus || 'Pending'],
     ['Signals Created', summary.signals ?? 0], ['Evidence Records', summary.evidence ?? 0],
     ['Out of Territory Excluded', summary.outOfTerritoryExcluded ?? 0],
-    ['Residential / Noise Excluded', (summary.nonCommercialExcluded ?? 0) + (summary.permitRejectedResidential ?? 0)],
-    ['Old Items Excluded', (summary.oldItemsExcluded ?? 0) + (summary.permitOldExcluded ?? 0)], ['Duplicates Removed', summary.duplicateRawExcluded ?? 0]
+    ['Temporary/Event Permits Excluded', summary.temporaryEventPermitExcluded ?? 0],
+    ['Residential Permits Excluded', summary.residentialPermitExcluded ?? 0],
+    ['Non-target Permits Excluded', summary.nonTargetPermitExcluded ?? 0],
+    ['Residential / Noise Excluded', (summary.nonCommercialExcluded ?? 0) + (summary.permitExcluded ?? 0)],
+    ['Old Items Excluded', (summary.oldItemsExcluded ?? 0) + (summary.permitOldExcluded ?? 0) + (summary.socialOldExcluded ?? 0)],
+    ['Duplicates Removed', summary.duplicateRawExcluded ?? 0]
   ];
   return rows.map(([k,v]) => `<div><span>${esc(k)}</span><strong>${esc(v)}</strong></div>`).join('');
 }
