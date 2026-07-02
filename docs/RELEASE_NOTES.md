@@ -1,27 +1,10 @@
 # Release Notes
 
-## v0.9.17 Alpha - Ownership Source Validation
+## v0.9.18 Alpha - Ownership Validation Visibility
 
-### Added
-
-- Ownership source validation for Mecklenburg public records.
-- Register of Deeds official search source check.
-- Property Record Card source check.
-- POLARIS source check.
-- Ownership verification links inside the Evidence tab.
-- QA metrics for ownership source status.
-- Ownership status on Property Details.
-
-### Important
-
-This release does not create ownership-change opportunities yet. It validates the official ownership/deed source path and adds owner-verification links so users can verify parcel/owner data from the correct public source.
-
-### Preserved
-
-- Current working UI.
-- Inline property records.
-- Permit clustering.
-- GIS parcel enrichment.
-- Permit source-aware links.
-- Copy permit number buttons.
-- Zero public branding guardrails.
+- Adds a visible Ownership Validation panel so source validation is no longer hidden in QA or details tabs.
+- Shows official ownership source reachability.
+- Shows how many Property Intelligence Records currently have owner data from permit/GIS fields.
+- Shows how many official ownership verification links are attached.
+- Clarifies that ownership-change opportunities are not created until Register of Deeds automation is certified.
+- No new branding. No UI redesign.

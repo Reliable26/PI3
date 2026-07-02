@@ -343,6 +343,33 @@ function qaRows(summary={}) {
   ];
   return rows.map(([k,v]) => `<div><span>${esc(k)}</span><strong>${esc(v)}</strong></div>`).join('');
 }
+
+function renderOwnershipValidation(data) {
+  const el = document.getElementById('ownershipValidation');
+  const statusEl = document.getElementById('ownershipStatus');
+  if (!el) return;
+  const s = data.summary || {};
+  const validation = data.ownershipValidation || {};
+  const sources = validation.results || [];
+  const checked = s.ownershipSourcesChecked ?? validation.ownershipSourcesChecked ?? sources.length ?? 0;
+  const reachable = s.ownershipSourcesReachable ?? validation.ownershipSourcesReachable ?? sources.filter(x => x.ok).length ?? 0;
+  const propsChecked = s.ownershipRecordsChecked ?? (data.properties || []).length ?? 0;
+  const propsMatched = s.ownershipRecordsMatched ?? (data.properties || []).filter(p => p.owner?.name).length ?? 0;
+  const searchLinks = s.ownershipSearchLinksAvailable ?? validation.parcelsWithManualLinks ?? 0;
+  const mode = s.ownershipAutomationStatus || 'Validation only - automated deed extraction pending certification';
+  if (statusEl) statusEl.textContent = `${reachable}/${checked} official ownership sources reachable • ${propsMatched}/${propsChecked} properties have owner data`;
+  const cards = [
+    ['Mode', 'Validation', 'No ownership-change opportunities are created until source automation is certified.'],
+    ['Official Sources', `${reachable}/${checked}`, 'Register of Deeds / Property Card / POLARIS reachability'],
+    ['Owner Data', `${propsMatched}/${propsChecked}`, 'Owner values found from permit or GIS source fields'],
+    ['Search Links', searchLinks, 'Official verification links attached to property records'],
+    ['Ownership Changes', s.ownershipOpportunitiesCreated ?? 0, 'Pending Register of Deeds automation'],
+    ['Status', mode, 'Displayed here so validation does not look invisible']
+  ];
+  const sourceRows = sources.length ? `<div class="ownership-source-list">${sources.map(src => `<a class="evidence-link" href="${esc(src.officialSearchUrl || src.url || '')}" target="_blank" rel="noopener"><strong>${esc(src.source || src.sourceId || 'Ownership Source')}</strong><span>${esc(src.ok ? 'Reachable' : 'Not reachable')}</span><small>${esc(src.notes || src.automationStatus || 'Source validation')}</small></a>`).join('')}</div>` : '';
+  el.innerHTML = cards.map(([label,value,sub]) => `<div class="ownership-card"><span>${esc(label)}</span><strong>${esc(value)}</strong><small>${esc(sub)}</small></div>`).join('') + sourceRows;
+}
+
 function renderData(data) {
   data = scrubPublicObject(data);
   const s = data.summary || {};
@@ -357,9 +384,10 @@ function renderData(data) {
     metricCard('High Priority', highPriority, 'Score 90+', '⚑'),
     metricCard('Active Permits', s.permitCandidates ?? 0, `${s.incidentOpportunities || 0} incident signals`, '▣'),
     metricCard('Permit Value', compactMoney(permitValue), 'Listed value', '$'),
-    metricCard('Data Confidence', `${Math.round(((s.gisMatches || 0) / Math.max(s.gisLookups || 1, 1)) * 100)}%`, 'GIS match rate', '◇')
+    metricCard('Owner Data', `${s.ownershipRecordsMatched ?? 0}/${s.ownershipRecordsChecked ?? 0}`, 'Ownership validation', '◇')
   ].join('');
   document.getElementById('sourceHealth').innerHTML = (data.health || []).map(sourceRow).join('') || '<p>No source health available.</p>';
+  renderOwnershipValidation(data);
   document.getElementById('properties').innerHTML = (data.properties || []).slice(0, 12).map(propertyCard).join('') || '<p class="empty">No property intelligence records generated yet.</p>';
   document.getElementById('organizations').innerHTML = (data.organizations || []).slice(0, 20).map(organizationRow).join('') || '<p class="empty">No organizations resolved yet.</p>';
   document.getElementById('qaMetrics').innerHTML = qaRows(s);

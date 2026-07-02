@@ -65,3 +65,13 @@
 .detail-panel{display:none!important}
 @media(max-width:1200px){.inline-detail .detail-table{grid-template-columns:repeat(2,minmax(0,1fr))}.inline-detail .pir-kpis{grid-template-columns:1fr}.inline-detail .detail-head{grid-template-columns:1fr}.detail-actions{justify-items:start}.inline-detail .detail-scores{display:grid;grid-template-columns:1fr 1fr;width:100%}}
 @media(max-width:700px){.content-grid{padding:12px}.inline-detail{padding:12px}.opp-row{grid-template-columns:1fr auto}.thumb{display:none}.chev{display:inline}.map-panel{margin:0 12px 12px!important}}
+
+
+/* v0.9.18 ownership validation visibility */
+.ownership-panel{margin:0 24px 16px;background:rgba(16,27,46,.78)}
+.ownership-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:10px}
+.ownership-card{border:1px solid var(--line);background:#101d31;border-radius:12px;padding:12px;min-height:86px}
+.ownership-card span,.ownership-card small{display:block;color:var(--muted);font-size:12px}
+.ownership-card strong{display:block;font-size:18px;margin:8px 0;line-height:1.2}
+.ownership-source-list{grid-column:1/-1;display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;margin-top:4px}
+@media(max-width:900px){.ownership-panel{margin:0 14px 14px}}

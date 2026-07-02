@@ -28,6 +28,6 @@ Every opportunity must include public evidence, a date, a source link, a propert
 Public agency and social-web indexed sources are monitored as a supporting evidence layer. Official public agency sources receive stronger confidence than general social/public web results. These signals are not CRM activity and do not track outreach, follow-up, or sales outcomes.
 
 
-## v0.9.17 Notes
+## v0.9.18 Notes
 
 Adds ownership source validation and ownership-verification evidence links. Ownership automation remains in validation until a stable query endpoint or data export is certified.

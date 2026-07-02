@@ -40,5 +40,5 @@ Public agency and social-web indexed sources are monitored as a supporting evide
 The pilot build adds diagnostics around rejected records, temporary/event permits, incidents, social/public-web records, and source health so the platform can be tuned using live data.
 
 
-## v0.9.17 Ownership Validation
+## v0.9.18 Ownership Validation
 Ownership data is resolved in layers: permit owner fields first, GIS owner fields second, and Register of Deeds planned as the authoritative ownership-change connector.
